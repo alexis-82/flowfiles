@@ -38,12 +38,17 @@ Un'applicazione web moderna per la navigazione dei file costruita con React e No
 1. Clonare il repository:
 ```bash
 git clone https://github.com/alexis-82/flowfiles.git
-cd file_browser
+cd flowfiles
 ```
 
 2. Avviare l'applicazione usando Docker Compose:
 ```bash
 docker-compose up --build
+```
+oppure
+
+```bash
+docker compose up --build
 ```
 
 Questo comando:
@@ -55,30 +60,14 @@ Questo comando:
 - Aprire il browser e navigare su `http://localhost`
 - L'API backend sarà disponibile su `http://localhost:3000`
 
-### Sviluppo
-
-Per eseguire l'applicazione in modalità sviluppo:
-
-1. Frontend (dalla directory frontend):
-```bash
-npm install
-npm run dev
-```
-
-2. Backend (dalla directory backend):
-```bash
-npm install
-npm run dev
-```
-
 ## Struttura del Progetto
 
 ```
-file_browser/
+flowfiles/
 ├── frontend/           # Applicazione frontend React
-├── backend/           # Applicazione backend Node.js
+├── backend/            # Applicazione backend Node.js
 ├── docker-compose.yaml # Configurazione Docker compose
-└── README.md          # Documentazione del progetto
+└── README.md           # Documentazione del progetto
 ```
 
 ## Configurazione Docker
@@ -147,12 +136,17 @@ A modern web-based file browser application built with React and Node.js, allowi
 1. Clone the repository:
 ```bash
 git clone https://github.com/alexis-82/flowfiles.git
-cd file_browser
+cd flowfiles
 ```
 
 2. Start the application using Docker Compose:
 ```bash
 docker-compose up --build
+```
+or
+
+```bash
+docker compose up --build
 ```
 
 This will:
@@ -164,30 +158,14 @@ This will:
 - Open your browser and navigate to `http://localhost`
 - The backend API will be available at `http://localhost:3000`
 
-### Development
-
-To run the application in development mode:
-
-1. Frontend (from the frontend directory):
-```bash
-npm install
-npm run dev
-```
-
-2. Backend (from the backend directory):
-```bash
-npm install
-npm run dev
-```
-
 ## Project Structure
 
 ```
-file_browser/
+flowfiles/
 ├── frontend/           # React frontend application
-├── backend/           # Node.js backend application
+├── backend/            # Node.js backend application
 ├── docker-compose.yaml # Docker composition configuration
-└── README.md          # Project documentation
+└── README.md           # Project documentation
 ```
 
 ## Docker Configuration
