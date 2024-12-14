@@ -1,6 +1,10 @@
 ## 🇮🇹 Italiano
 
-# Applicazione File Browser
+<p align="center">
+  <img src="frontend/public/favicon.ico" alt="FlowFiles Logo" width="100" height="100">
+</p>
+
+<h1 align="center">FlowFiles</h1>
 
 Un'applicazione web moderna per la navigazione dei file costruita con React e Node.js, che permette agli utenti di sfogliare e gestire i file attraverso un'interfaccia intuitiva e pulita.
 
@@ -98,7 +102,11 @@ L'applicazione utilizza Docker Compose per gestire due servizi:
 
 ## 🇬🇧 English
 
-# File Browser Application
+<p align="center">
+  <img src="frontend/public/favicon.ico" alt="FlowFiles Logo" width="100" height="100">
+</p>
+
+<h1 align="center">FlowFiles</h1>
 
 A modern web-based file browser application built with React and Node.js, allowing users to browse and manage files through a clean and intuitive interface.
 
