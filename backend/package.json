@@ -1,0 +1,36 @@
+{
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.6",
+    "express": "^4.21.1",
+    "multer": "^1.4.5-lts.1",
+    "rimraf": "^5.0.10",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/dotenv": "^6.1.1",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/multer": "^1.4.11",
+    "@types/node": "^22.10.0",
+    "pino-pretty": "^13.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/bin/www/server.ts | pino-pretty",
+    "build": "rimraf dist && tsup --format esm",
+    "start": "node dist/bin/www/server.mjs",
+    "clean": "rimraf dist",
+    "lint:check": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "format:check": "prettier --config .prettierrc --check .",
+    "format:fix": "prettier --config .prettierrc --write .",
+    "test": "vitest",
+    "coverage": "vitest run --coverage"
+  }
+}

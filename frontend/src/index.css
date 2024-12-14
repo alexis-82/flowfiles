@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 1. Use a more-intuitive box-sizing model */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* 2. Remove default margin */
+* {
+  margin: 0;
+}
+
+body {
+  /* 3. Add accessible line-height */
+  line-height: 1.5;
+  /* 4. Improve text rendering */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 5. Improve media defaults */
+img, picture, video, canvas, svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* 6. Inherit fonts for form controls */
+input, button, textarea, select {
+  font: inherit;
+}
+
+/* 7. Avoid text overflows */
+p, h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: break-word;
+}
+
+/* 8. Improve line wrapping */
+p {
+  text-wrap: pretty;
+}
+h1, h2, h3, h4, h5, h6 {
+  text-wrap: balance;
+}
+
+/*
+  9. Create a root stacking context
+*/
+
+#root, #__next {
+  isolation: isolate;
+}
+
+#root {
+  margin: 0 auto;
+}
+
+/* Aggiungi stili specifici per il FileBrowser */
+.file-browser {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 1.5rem; /* Aggiungi padding per il contenitore */
+  background-color: #ffffff; /* Colore di sfondo */
+  border-radius: 0.5rem; /* Arrotonda gli angoli */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); /* Ombra */
+}
+
+.file-uploader {
+  border: 2px dashed #d1d5db; /* Colore del bordo */
+  background-color: #f0f9ff; /* Colore di sfondo */
+}
+
+.file-uploader.drag-over {
+  border-color: #3b82f6; /* Colore del bordo quando si trascina sopra */
+  background-color: #eff6ff; /* Colore di sfondo quando si trascina sopra */
+}
