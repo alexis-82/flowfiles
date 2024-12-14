@@ -217,3 +217,9 @@ The application uses Docker Compose to manage two services:
 ## License
 
 This project is licensed under the terms of the included license file.
+
+---
+
+## Screenshot
+
+[![flowfiles.png](https://i.postimg.cc/QCMJn5xg/flowfiles.png)](https://postimg.cc/CBW8RR8d)
