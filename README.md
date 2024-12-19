@@ -64,39 +64,38 @@ Questo comando:
 - Aprire il browser e navigare su `http://localhost`
 - L'API backend sarà disponibile su `http://localhost:3000`
 
-## Struttura del Progetto
+## Avvio Senza Docker
 
+### Prerequisiti
+- Node.js (versione 16 o superiore)
+- npm (incluso con Node.js)
+
+### Esecuzione dell'Applicazione
+
+1. Clonare il repository:
+```bash
+git clone https://github.com/alexis-82/flowfiles.git
+cd flowfiles
 ```
-flowfiles/
-├── frontend/           # Applicazione frontend React
-├── backend/            # Applicazione backend Node.js
-├── docker-compose.yaml # Configurazione Docker compose
-└── README.md           # Documentazione del progetto
+
+2. Rendere eseguibile lo script start.sh:
+```bash
+chmod +x start.sh
 ```
 
-## Configurazione Docker
+3. Eseguire lo script start.sh:
+```bash
+./start.sh
+```
 
-L'applicazione utilizza Docker Compose per gestire due servizi:
+Lo script:
+- Verifica la presenza delle directory necessarie
+- Installa le dipendenze del frontend e del backend
+- Compila entrambe le applicazioni
+- Avvia il backend sulla porta 3000
+- Avvia il frontend sulla porta predefinita
+- Gestisce automaticamente l'arresto dei servizi quando si termina lo script
 
-1. Servizio Frontend:
-   - Build dal Dockerfile frontend
-   - Serve l'applicazione React
-   - Esposto sulla porta 80
-   - Configurato per comunicare con il servizio backend
-
-2. Servizio Backend:
-   - Build dal Dockerfile backend
-   - Esegue il server API Node.js
-   - Esposto sulla porta 3000
-   - Gestisce le operazioni sul file system
-
-## Contribuire
-
-1. Fai il fork del repository
-2. Crea il tuo branch per la feature
-3. Committa le tue modifiche
-4. Pusha sul branch
-5. Crea una nuova Pull Request
 
 ---
 
@@ -166,39 +165,37 @@ This will:
 - Open your browser and navigate to `http://localhost`
 - The backend API will be available at `http://localhost:3000`
 
-## Project Structure
+## Running Without Docker
 
+### Prerequisites
+- Node.js (version 16 or higher)
+- npm (included with Node.js)
+
+### Running the Application
+
+1. Clone the repository:
+```bash
+git clone https://github.com/alexis-82/flowfiles.git
+cd flowfiles
 ```
-flowfiles/
-├── frontend/           # React frontend application
-├── backend/            # Node.js backend application
-├── docker-compose.yaml # Docker composition configuration
-└── README.md           # Project documentation
+
+2. Make the start.sh script executable:
+```bash
+chmod +x start.sh
 ```
 
-## Docker Configuration
+3. Run the start.sh script:
+```bash
+./start.sh
+```
 
-The application uses Docker Compose to manage two services:
-
-1. Frontend Service:
-   - Builds from the frontend Dockerfile
-   - Serves the React application
-   - Exposed on port 80
-   - Configured to communicate with the backend service
-
-2. Backend Service:
-   - Builds from the backend Dockerfile
-   - Runs the Node.js API server
-   - Exposed on port 3000
-   - Handles file system operations
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a new Pull Request
+The script will:
+- Check for required directories
+- Install frontend and backend dependencies
+- Build both applications
+- Start the backend on port 3000
+- Start the frontend on the default port
+- Automatically handle service shutdown when the script is terminated
 
 ## License
 
@@ -208,4 +205,4 @@ This project is licensed under the terms of the included license file.
 
 ## Screenshot
 
-[![flowfiles.png](https://i.postimg.cc/QCMJn5xg/flowfiles.png)](https://postimg.cc/CBW8RR8d)
+[![flowfiles.png](https://i.postimg.cc/QCMJn5xg/flowfiles.png)](hhttps://i.postimg.cc/QCMJn5xg/flowfiles.png)
