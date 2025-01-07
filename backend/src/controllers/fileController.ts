@@ -43,6 +43,21 @@ export const renameFile = async (req: Request, res: Response) => {
     }
 };
 
+// Funzione di utilità per calcolare la dimensione totale della directory
+const calculateDirectorySize = (directoryPath: string): number => {
+    let totalSize = 0;
+    const files = fs.readdirSync(directoryPath);
+    
+    for (const file of files) {
+        if (file === '.gitkeep') continue;
+        const filePath = path.join(directoryPath, file);
+        const stats = fs.statSync(filePath);
+        totalSize += stats.size;
+    }
+    
+    return totalSize;
+};
+
 export const fileController = {
     uploadFile: async (req: Request, res: Response) => {
         logger.info('Tentativo di caricamento file', { 
@@ -60,6 +75,7 @@ export const fileController = {
 
             const fileInfo = {
                 name: req.file.originalname,
+                // Se il file è più piccolo di 1MB, mostra KB, altrimenti mostra MB
                 size: sizeInMB < 1 
                     ? `${sizeInKB.toFixed(1)} KB`
                     : `${sizeInMB.toFixed(1)} MB`,
@@ -132,6 +148,26 @@ export const fileController = {
             res.status(200).json({ message: 'Tutti i file sono stati eliminati' });
         } catch (error) {
             res.status(500).json({ error: 'Errore durante l\'eliminazione dei file' });
+        }
+    },
+
+    getStorageInfo: async (req: Request, res: Response) => {
+        try {
+            const totalSize = calculateDirectorySize(UPLOAD_DIR);
+            // Impostiamo un limite di 1GB per lo storage
+            // 500MB: const STORAGE_LIMIT = 500 * 1024 * 1024;
+           // 2GB: const STORAGE_LIMIT = 2 * 1024 * 1024 * 1024;
+            // 5GB: const STORAGE_LIMIT = 5 * 1024 * 1024 * 1024;
+            const storageLimit = 1024 * 1024 * 1024; // 1GB in bytes
+            const usedPercentage = (totalSize / storageLimit) * 100;
+            
+            res.status(200).json({
+                used: totalSize,
+                total: storageLimit,
+                percentage: Math.min(100, Math.round(usedPercentage * 10) / 10)
+            });
+        } catch (error) {
+            res.status(500).json({ error: 'Errore durante il recupero delle informazioni sullo storage' });
         }
     }
 };

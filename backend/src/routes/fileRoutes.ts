@@ -50,4 +50,8 @@ router.post('/rename', async (req, res) => {
     await renameFile(req, res);
 });
 
+router.get('/storage', async (req, res) => {
+    await fileController.getStorageInfo(req, res);
+});
+
 export default router;

@@ -1,8 +1,15 @@
 import React from 'react';
-import { BsFileEarmarkCode, BsFiletypeExe, BsFiletypeMp3, BsFiletypeMp4 } from 'react-icons/bs';
-import { FaDocker, FaGit, FaHtml5 } from 'react-icons/fa';
+import { FaDocker, FaGit, FaHtml5, FaRegFilePdf } from 'react-icons/fa';
 import { GrDocumentTxt } from 'react-icons/gr';
-import { Si7Zip, SiJavascript, SiTypescript } from 'react-icons/si';
+import { RiFileExcel2Line, RiFileWord2Line } from 'react-icons/ri';
+import { Si7Zip, SiDotenv, SiJavascript, SiTypescript } from 'react-icons/si';
+import { 
+    BsFileEarmarkCode,
+    BsFiletypeExe,
+    BsFiletypeMp3,
+    BsFiletypeMp4,
+    BsFiletypeSql
+} from 'react-icons/bs';
 import {
     TbUpload,
     TbTrash,
@@ -57,10 +64,13 @@ export const FileIcon: React.FC<{ filename: string; className?: string }> = ({ f
         case 'txt':
             return <GrDocumentTxt {...props} />;
         case 'pdf':
+            return <FaRegFilePdf {...props} />;
         case 'doc':
         case 'docx':
+            return <RiFileWord2Line {...props} />;
         case 'xls':
         case 'xlsx':
+            return <RiFileExcel2Line {...props} />;
         case 'ppt':
         case 'pptx':
             return <TbFileText {...props} />;
@@ -89,9 +99,14 @@ export const FileIcon: React.FC<{ filename: string; className?: string }> = ({ f
         case 'cs':
         case 'json':
         case 'md':
-        case 'sql':
+        case 'cpp':
         case 'xaml':
             return <BsFileEarmarkCode {...props} />;
+        case 'sql':
+        case 'db':
+        case 'sdb':
+        case 'sqlite':
+            return <BsFiletypeSql {...props} />;
         case 'exe':
             return <BsFiletypeExe {...props} />;
         case 'msi':
@@ -132,6 +147,7 @@ export const FileIcon: React.FC<{ filename: string; className?: string }> = ({ f
         case 'flac':
             return <TbMusic {...props} />;
         case 'gitignore':
+        case 'gitkeep':
             return <FaGit {...props} />;
         case 'dockerignore':
         case 'dockerfile':
@@ -139,6 +155,8 @@ export const FileIcon: React.FC<{ filename: string; className?: string }> = ({ f
         case 'docker-compose.yml':
         case 'docker-compose.yaml':
             return <FaDocker {...props} />;
+        case 'env':
+            return <SiDotenv {...props} />;
         default:
             return <TbFile {...props} />;
     }

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { FileIcon, TrashIcon, DiskUploadIcon, DownloadIcon, RenameIcon } from './Icons';
 import { fileService } from '../services/fileService';
 import toast from 'react-hot-toast';
@@ -8,6 +8,15 @@ interface FileData {
     name: string;
     size: string;
     date: string;
+}
+
+// Definiamo l'interfaccia per il ref
+export interface FileBrowserHandle {
+    loadFiles: () => Promise<void>;
+}
+
+interface FileBrowserProps {
+    onFileChange?: () => void;
 }
 
 const FileUploader: React.FC<{ onUpload: (file: globalThis.File) => Promise<void> }> = ({ onUpload }) => {
@@ -96,31 +105,38 @@ const formatDate = (dateString: string) => {
     });
 };
 
-const FileBrowser: React.FC = () => {
+const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>(({ onFileChange }, ref) => {
     const [files, setFiles] = useState<FileData[]>([]);
     const [loading, setLoading] = useState(true);
-    const [updateTrigger, setUpdateTrigger] = useState(0);
 
     const loadFiles = async () => {
         try {
             const fileList = await fileService.getAllFiles();
             setFiles(fileList);
+            onFileChange?.();
         } catch (error) {
+            console.error('Errore durante il caricamento dei file:', error);
             toast.error('Errore durante il caricamento dei file');
         } finally {
             setLoading(false);
         }
     };
 
+    // Esponiamo loadFiles attraverso il ref
+    useImperativeHandle(ref, () => ({
+        loadFiles
+    }));
+
     useEffect(() => {
         loadFiles();
-    }, [updateTrigger]);
+    }, []);
 
     const handleFileUpload = async (file: globalThis.File) => {
         try {
             await fileService.uploadFile(file);
-            setUpdateTrigger(prev => prev + 1);
+            await loadFiles();
             toast.success('File caricato con successo');
+            onFileChange?.();
         } catch (error) {
             console.error('Errore durante il caricamento:', error);
             toast.error('Errore durante il caricamento del file');
@@ -135,7 +151,8 @@ const FileBrowser: React.FC = () => {
             if (fileInput) {
                 fileInput.value = '';
             }
-            setUpdateTrigger(prev => prev + 1);
+            await loadFiles();
+            onFileChange?.();
             toast.success('File eliminato con successo');
         } catch (error) {
             toast.error('Errore durante l\'eliminazione del file');
@@ -150,23 +167,12 @@ const FileBrowser: React.FC = () => {
             const newNameWithExt = newName.includes('.') ? newName : `${newName}.${extension}`;
             
             await fileService.renameFile(oldName, newNameWithExt);
-            setUpdateTrigger(prev => prev + 1);
+            await loadFiles();
+            onFileChange?.();
             toast.success('File rinominato con successo');
         } catch (error) {
             console.error('Errore durante la rinomina del file:', error);
             toast.error('Errore durante la rinomina del file');
-        }
-    };
-
-    const handleDeleteAll = async () => {
-        if (window.confirm('Sei sicuro di voler eliminare tutti i file?')) {
-            try {
-                await fileService.deleteAllFiles();
-                setUpdateTrigger(prev => prev + 1);
-                toast.success('Tutti i file sono stati eliminati');
-            } catch (error) {
-                toast.error('Errore durante l\'eliminazione dei file');
-            }
         }
     };
 
@@ -193,14 +199,7 @@ const FileBrowser: React.FC = () => {
             <div className="flex justify-between items-center mb-6">
                 <div className="flex-1"></div>
                 <h1 className="text-3xl font-bold text-center flex-1" style={{ color: '#209CEE' }}>FlowFiles</h1>
-                <div className="flex-1 text-right">
-                    <button
-                        onClick={handleDeleteAll}
-                        className="text-red-500 hover:text-red-700 font-medium"
-                    >
-                        Elimina tutto
-                    </button>
-                </div>
+                <div className="flex-1"></div>
             </div>
             <FileUploader onUpload={handleFileUpload} />
             <div className="mt-6">
@@ -276,6 +275,6 @@ const FileBrowser: React.FC = () => {
             </div>
         </div>
     );
-};
+});
 
 export default FileBrowser; 

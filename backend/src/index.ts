@@ -1,7 +1,5 @@
 import express, {Request, Response} from 'express'
 import cors from 'cors';
-import fs from 'fs';
-import path from 'path';
 import fileRoutes from './routes/fileRoutes';
 import { generateServerInfoHtml } from './utils/htmlGenerator'
 import { fileURLToPath } from 'url';
@@ -13,19 +11,12 @@ const app = express();
 
 logger.info('Applicazione avviata');
 
-// Assicurati che la directory uploads esista
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const uploadsDir = path.join(__dirname, '../uploads');
-
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-    logger.info('Directory uploads creata:', { path: uploadsDir });
-}
-
 app.use(cors());
 app.use(express.json());
 app.use('/api/files', fileRoutes);
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const publicPath = join(__dirname, "..", "..", 'public');
 console.log('Serving static files from:', publicPath);

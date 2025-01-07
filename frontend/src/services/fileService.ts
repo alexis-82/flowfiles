@@ -10,23 +10,13 @@ export const fileService = {
     const response = await axios.post(`${API_URL}/upload`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'Expires': '0'
       },
     });
     return response.data;
   },
 
   async getAllFiles() {
-    const response = await axios.get(`${API_URL}/list`, {
-      params: { timestamp: new Date().getTime() },
-      headers: {
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    });
+    const response = await axios.get(`${API_URL}/list`);
     return response.data;
   },
 
@@ -48,5 +38,10 @@ export const fileService = {
   deleteAllFiles: async () => {
     const response = await axios.delete(`${API_URL}/all`);
     return response.data;
+  },
+  
+  getStorageInfo: async () => {
+    const response = await axios.get(`${API_URL}/storage`);
+    return response.data;
   }
-}; 
+};
