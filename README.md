@@ -205,4 +205,4 @@ This project is licensed under the terms of the included license file.
 
 ## Screenshot
 
-[![flowfiles.png](https://i.postimg.cc/QCMJn5xg/flowfiles.png)](hhttps://i.postimg.cc/QCMJn5xg/flowfiles.png)
+[![flowfiles.png](https://i.postimg.cc/nrR4rqrq/Screenshot-from-2025-01-07-18-45-30.png)](https://i.postimg.cc/nrR4rqrq/Screenshot-from-2025-01-07-18-45-30.png)
