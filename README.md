@@ -56,12 +56,12 @@ docker compose up --build
 ```
 
 Questo comando:
-- Costruisce e avvia il container frontend (accessibile sulla porta 80)
+- Costruisce e avvia il container frontend (accessibile sulla porta 8080)
 - Costruisce e avvia il container backend (accessibile sulla porta 3000)
 - Configura le impostazioni di rete necessarie
 
 3. Accedere all'applicazione:
-- Aprire il browser e navigare su `http://localhost`
+- Aprire il browser e navigare su `http://localhost:8080`
 - L'API backend sarà disponibile su `http://localhost:3000`
 
 ## Avvio Senza Docker
@@ -157,12 +157,12 @@ docker compose up --build
 ```
 
 This will:
-- Build and start the frontend container (accessible on port 80)
+- Build and start the frontend container (accessible on port 8080)
 - Build and start the backend container (accessible on port 3000)
 - Set up the necessary network configurations
 
 3. Access the application:
-- Open your browser and navigate to `http://localhost`
+- Open your browser and navigate to `http://localhost:8080`
 - The backend API will be available at `http://localhost:3000`
 
 ## Running Without Docker
