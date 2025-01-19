@@ -8,17 +8,38 @@ interface ChangelogEntry {
 
 const changelogData: ChangelogEntry[] = [
     {
-        version: "1.2.0",
-        date: "07-01-2025",
+        version: "1.3.0",
+        date: "19-01-2025",
         changes: [
-            "Aggiunta la sidebar",
+            "Nuove API per il backend",
+            "Creazione di una Nuova Cartella in Files e nella Dashboard",
+            "Supporto per il Drag and Drop nella cartella creata",
+            "Espansione della cartella creata",
+            "Pulsante per ritornare alla Home Directory",
+            "Visualizzazione del Path corrente",
+            "Migliorata l'interfaccia utente",
+            "Aggiunte nuove icone per i tipi di file",
+            "Fix per il layout delle colonne nella tabella dei files",
+            "Fix Path post eliminazione file o cartella",
+            "Impostato limite di storage a 2GB di default (funzionante)",
+            "Implementato limite di file in upload a 1GB di default (funzionante)",
+            "Aggiunta la funzionalità di spostare i file nel cestino",
+            "Aggiunta la funzionalità di ripristinare i file dal cestino",
+            "Aggiunta la funzionalità di eliminare definitivamente i file dal cestino",
+        ]
+    },
+    {
+        version: "1.2.0",
+        date: "xx-12-2024",
+        changes: [
+            "Aggiunta di una sidebar",
             "Implementato sezione Changelog",
             "Migliorata l'interfaccia utente",
-            "Rotazione automatica dei file di log",
-            "Separazione tra log di errore e log generali",
+            "Rotazione automatica dei file di log (lato backend)",
+            "Separazione tra log di errore e log generali (lato backend)",
             "Aggiunto un pulsante per nascondere/mostrare la sidebar",
             "Aggiunto monitoraggio dello storage",
-            "Implementato il limite di storage a 1GB di default (non funzionante)",
+            "Impostato limite di storage a 1GB di default (non funzionante)"
         ]
     },
     {
@@ -31,8 +52,8 @@ const changelogData: ChangelogEntry[] = [
             "Aggiunta la funzionalità di upload file",
             "Aggiunta la funzionalità di download file",
             "Aggiunta la funzionalità di rinomina file",
-            "Aggiunta la funzionalità di eliminazione di tutti i file",
-            "Aggiunta la funzionalità di eliminazione di un singolo file",
+            "Aggiunta la funzionalità di eliminazione di tutti i file (permanente)",
+            "Aggiunta la funzionalità di eliminazione di un singolo file (permanente)",
             "Aggiunto il supporto per il drag and drop dei file"
         ]
     }

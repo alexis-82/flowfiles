@@ -6,49 +6,89 @@ import toast from 'react-hot-toast';
 
 interface SidebarProps {
     isOpen: boolean;
-    onDeleteAll: () => Promise<void>;
-    onViewChange: (view: 'files' | 'changelog' | 'dashboard') => void;
-    currentView: 'files' | 'changelog' | 'dashboard';
-    storageUpdateTrigger: number;
+    onDeleteAll: () => void;
+    onViewChange: (view: 'files' | 'trash' | 'changelog') => void;
+    currentView: 'files' | 'trash' | 'changelog';
+    onRefreshFiles: () => void;
+    storageUpdateTrigger?: number;
+    onResetPath: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onDeleteAll, onViewChange, currentView, storageUpdateTrigger }) => {
-    const [isFilesOpen, setIsFilesOpen] = useState(false);
-    const [storageInfo, setStorageInfo] = useState<{ percentage: number }>({ percentage: 0 });
+interface StorageInfo {
+    usedStorage: number;
+    totalStorage: number;
+    usedPercentage: number;
+    freeStorage: number;
+}
 
+const Sidebar: React.FC<SidebarProps> = ({
+    isOpen,
+    onDeleteAll,
+    onViewChange,
+    currentView,
+    onRefreshFiles,
+    storageUpdateTrigger = 0,
+    onResetPath
+}) => {
+    const [isFilesOpen, setIsFilesOpen] = useState(false);
+    const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
     useEffect(() => {
-        const loadStorageInfo = async () => {
+        const fetchStorageInfo = async () => {
             try {
                 const info = await fileService.getStorageInfo();
                 setStorageInfo(info);
             } catch (error) {
-                console.error('Errore nel caricamento delle informazioni sullo storage:', error);
-                toast.error('Errore nel caricamento delle informazioni sullo storage');
+                console.error('Errore nel caricamento delle informazioni di storage:', error);
+                toast.error('Fallito a caricare le informazioni di storage');
             }
         };
 
-        loadStorageInfo();
-    }, [storageUpdateTrigger]); // Ricarica quando storageUpdateTrigger cambia
+        fetchStorageInfo();
+    }, [storageUpdateTrigger]);
+
+    const formatSize = (bytes: number): string => {
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        if (bytes === 0) return '0 Bytes';
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+    };
+
+    const getProgressBarColor = (percentage: number): string => {
+        if (percentage >= 90) return 'bg-red-500';
+        if (percentage >= 70) return 'bg-yellow-500';
+        return 'bg-blue-500';
+    };
 
     const handleDeleteAll = async () => {
-        if (window.confirm('Sei sicuro di voler eliminare tutti i file?')) {
+        if (window.confirm('Sei sicuro di voler spostare tutti i file nel cestino?')) {
             try {
                 await fileService.deleteAllFiles();
                 await onDeleteAll();
-                // Aggiorna le informazioni sullo storage dopo l'eliminazione
-                const info = await fileService.getStorageInfo();
-                setStorageInfo(info);
-                toast.success('Tutti i file sono stati eliminati');
+                onResetPath();
+                toast.success('Tutti i file sono stati spostati nel cestino');
             } catch {
-                toast.error('Errore durante l\'eliminazione dei file');
+                toast.error('Errore durante lo spostamento dei file nel cestino');
+            }
+        }
+    };
+
+    const handleCreateFolder = async () => {
+        const folderName = prompt('Inserisci il nome della nuova cartella:');
+        if (folderName) {
+            try {
+                await fileService.createFolder(folderName);
+                await onRefreshFiles();
+                toast.success('Cartella creata con successo');
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (error) {
+                toast.error('Errore durante la creazione della cartella');
             }
         }
     };
 
     return (
-        <div className={`fixed left-0 top-0 h-full w-64 bg-white shadow-lg p-4 z-40 transition-transform duration-300 ${
-            isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}>
+        <div className={`fixed left-0 top-0 h-full w-64 bg-white shadow-lg p-4 z-40 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}>
             <div className="flex flex-col h-full">
                 {/* Logo/Header */}
                 <div className="mb-8">
@@ -64,15 +104,28 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onDeleteAll, onViewChange, cu
                     <ul className="space-y-2">
                         <li>
                             <button
-                                onClick={() => onViewChange('dashboard')}
-                                className={`flex items-center w-full p-2 rounded-lg ${
-                                    currentView === 'dashboard' 
-                                    ? 'bg-blue-50 text-blue-600' 
-                                    : 'text-gray-700 hover:bg-blue-50'
-                                }`}
+                                onClick={() => onViewChange('files')}
+                                className={`flex items-center w-full p-2 ${
+                                    currentView === 'files' 
+                                        ? 'text-blue-600 bg-blue-50' 
+                                        : 'text-gray-700 hover:bg-blue-50'
+                                } rounded-lg`}
                             >
-                                <span className="material-icons mr-3">dashboard</span>
-                                Dashboard
+                                <span className="material-icons mr-3">folder</span>
+                                File Browser
+                            </button>
+                        </li>
+                        <li>
+                            <button
+                                onClick={() => onViewChange('trash')}
+                                className={`flex items-center w-full p-2 ${
+                                    currentView === 'trash' 
+                                        ? 'text-blue-600 bg-blue-50' 
+                                        : 'text-gray-700 hover:bg-blue-50'
+                                } rounded-lg`}
+                            >
+                                <span className="material-icons mr-3">delete</span>
+                                Cestino
                             </button>
                         </li>
                         <li>
@@ -90,21 +143,30 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onDeleteAll, onViewChange, cu
                                 <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isFilesOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
                                     <ul className="ml-8 mt-2 space-y-2">
                                         <li>
+                                            <button
+                                                onClick={handleCreateFolder}
+                                                className="flex items-center w-full p-2 text-gray-600 hover:bg-blue-50 rounded-lg text-sm"
+                                            >
+                                                <span className="material-icons text-sm mr-3">create_new_folder</span>
+                                                Nuova cartella
+                                            </button>
+                                        </li>
+                                        <li>
                                             <a href="#" className="flex items-center p-2 text-gray-600 hover:bg-blue-50 rounded-lg text-sm">
                                                 <span className="material-icons text-sm mr-3">description</span>
-                                                Documents
+                                                Documenti
                                             </a>
                                         </li>
                                         <li>
                                             <a href="#" className="flex items-center p-2 text-gray-600 hover:bg-blue-50 rounded-lg text-sm">
                                                 <span className="material-icons text-sm mr-3">image</span>
-                                                Images
+                                                Immagini
                                             </a>
                                         </li>
                                         <li>
                                             <a href="#" className="flex items-center p-2 text-gray-600 hover:bg-blue-50 rounded-lg text-sm">
                                                 <span className="material-icons text-sm mr-3">movie</span>
-                                                Videos
+                                                Video
                                             </a>
                                         </li>
                                         <li>
@@ -121,57 +183,45 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onDeleteAll, onViewChange, cu
                             </div>
                         </li>
                         <li>
-                            <a href="#" className="flex items-center p-2 text-gray-700 hover:bg-blue-50 rounded-lg">
-                                <span className="material-icons mr-3">history</span>
-                                Recent
-                            </a>
-                        </li>
-                        <li>
-                            <a href="#" className="flex items-center p-2 text-gray-700 hover:bg-blue-50 rounded-lg">
-                                <span className="material-icons mr-3">star</span>
-                                Favorites
-                            </a>
+                            <button
+                                onClick={() => onViewChange('changelog')}
+                                className={`flex items-center w-full p-2 rounded-lg ${
+                                    currentView === 'changelog'
+                                        ? 'text-blue-600 bg-blue-50'
+                                        : 'text-gray-700 hover:bg-blue-50'
+                                }`}
+                            >
+                                <TbLogs className="w-6 h-6 mr-3" />
+                                Changelog
+                            </button>
                         </li>
                     </ul>
                 </nav>
 
-                {/* Footer */}
-                <ul>
-                    <li>
-                        <button
-                            onClick={() => onViewChange('changelog')}
-                            className={`flex items-center w-full p-2 rounded-lg ${
-                                currentView === 'changelog' 
-                                ? 'bg-blue-50 text-blue-600' 
-                                : 'text-gray-700 hover:bg-blue-50'
-                            }`}
-                        >
-                            <TbLogs className="w-6 h-6 mr-3" />
-                            Changelog
-                        </button>
-                    </li>
-                </ul>
-                <div className="mt-auto pt-4 border-t border-gray-200">
-                    <div className="text-sm text-gray-500">
-                        <p>Storage: {storageInfo.percentage}% used</p>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                            <div 
-                                className={`h-2.5 rounded-full ${
-                                    storageInfo.percentage > 90 
-                                        ? 'bg-red-600' 
-                                        : storageInfo.percentage > 70 
-                                            ? 'bg-yellow-600' 
-                                            : 'bg-blue-600'
-                                }`}
-                                style={{ width: `${storageInfo.percentage}%` }}
-                            ></div>
+                {/* Storage Section */}
+                <div className="mt-4 p-4 bg-gray-150 rounded-lg">
+                    <h3 className="text-sm font-semibold mb-2">Storage</h3>
+                    {storageInfo && (
+                        <div>
+                            <div className="w-full h-2 bg-gray-200 rounded-full mb-2">
+                                <div
+                                    className={`h-full rounded-full ${getProgressBarColor(storageInfo.usedPercentage)}`}
+                                    style={{ width: `${storageInfo.usedPercentage}%` }}
+                                />
+                            </div>
+                            <div className="text-xs text-gray-600">
+                                <p>{formatSize(storageInfo.usedStorage)} usati di {formatSize(storageInfo.totalStorage)}</p>
+                                <p className="mt-1">{storageInfo.usedPercentage.toFixed(1)}% usato</p>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
-                <p className="mt-2 text-xs text-gray-700 text-center">v1.2.0</p>
+
+                {/* Footer */}
+                <p className="mt-2 text-xs text-gray-700 text-center">v1.3.0</p>
             </div>
         </div>
     );
 };
 
-export default Sidebar;
+export default Sidebar; 
