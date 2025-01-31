@@ -85,7 +85,7 @@ chmod +x start.sh
 
 3. Eseguire lo script start.sh:
 ```bash
-./start.sh
+sudo ./start.sh
 ```
 
 Lo script:
@@ -186,7 +186,7 @@ chmod +x start.sh
 
 3. Run the start.sh script:
 ```bash
-./start.sh
+sudo ./start.sh
 ```
 
 The script will:
