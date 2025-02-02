@@ -1,5 +1,23 @@
 #!/bin/bash
 
+# Check for sudo privileges
+if [[ $EUID -ne 0 ]]; then
+   echo "Questo script deve essere eseguito con sudo" 
+   echo "Uso: sudo $0"
+   exit 1
+fi
+
+# Function to check and install Node.js
+install_nodejs() {
+    if ! command -v node &> /dev/null; then
+        echo "Node.js non trovato. Installazione in corso..."
+        curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
+        apt-get install -y nodejs
+    else
+        echo "Node.js già installato. Versione: $(node -v)"
+    fi
+}
+
 # Function to check if a directory exists
 check_directory() {
     if [ ! -d "$1" ]; then
@@ -7,6 +25,9 @@ check_directory() {
         exit 1
     fi
 }
+
+# Install Node.js if not present
+install_nodejs
 
 # Check if directories exist
 check_directory "./frontend"

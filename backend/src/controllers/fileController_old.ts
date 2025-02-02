@@ -4,7 +4,6 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import logger from '../utils/logger';
 import archiver from 'archiver';
-import AdmZip from 'adm-zip';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -504,53 +503,6 @@ export const fileController = {
         } catch (error) {
             logger.error('Error in downloadFolderAsZip:', error);
             res.status(500).json({ error: 'Errore durante il download della cartella' });
-        }
-    },
-
-    uploadFolder: async (req: Request, res: Response) => {
-        logger.info('Tentativo di caricamento cartella', { 
-            filename: req.file?.originalname 
-        });
-        try {
-            if (!req.file) {
-                logger.warn('Tentativo di caricamento cartella senza file');
-                return res.status(400).json({ error: 'Nessuna cartella caricata' });
-            }
-
-            const uploadPath = req.body.path || '/';
-            const targetDir = path.join(UPLOAD_DIR, sanitizePath(uploadPath));
-
-            if (!fs.existsSync(targetDir)) {
-                return res.status(404).json({ error: 'Cartella di destinazione non trovata' });
-            }
-
-            const zipFilePath = req.file.path;
-            const extractDir = path.join(targetDir, path.parse(req.file.originalname).name); // Estrai nella cartella con lo stesso nome dello zip
-
-            // Crea la directory di estrazione se non esiste
-            if (!fs.existsSync(extractDir)) {
-                fs.mkdirSync(extractDir, { recursive: true });
-            }
-
-            // Estrai il contenuto dello zip
-            const zip = new AdmZip(zipFilePath);
-            zip.extractAllTo(extractDir, true);
-
-            // Elimina il file zip temporaneo
-            fs.unlinkSync(zipFilePath);
-
-            // Invia una risposta di successo
-            res.status(200).json({ message: 'Cartella caricata con successo' });
-        } catch (error) {
-            logger.error('Errore durante il caricamento della cartella', { 
-                error, 
-                filename: req.file?.originalname 
-            });
-            res.status(500).json({ 
-                error: 'Errore durante il caricamento della cartella',
-                details: error instanceof Error ? error.message : 'Unknown error',
-                filename: req.file?.originalname
-            });
         }
     }
 };

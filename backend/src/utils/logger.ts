@@ -17,7 +17,7 @@ const logger = winston.createLogger({
     level: 'info',
     format: winston.format.combine(
         winston.format.timestamp({
-            format: 'YYYY-MM-DD HH:mm:ss'
+            format: 'DD-MM-YYYY HH:mm:ss'
         }),
         winston.format.errors({ stack: true }),
         winston.format.splat(),
@@ -28,7 +28,7 @@ const logger = winston.createLogger({
         // File di log rotanti per errori
         new winston.transports.DailyRotateFile({
             filename: path.join(logDir, 'error-%DATE%.log'),
-            datePattern: 'YYYY-MM-DD',
+            datePattern: 'DD-MM-YYYY',
             zippedArchive: true,
             maxSize: '20m',
             maxFiles: '14d',
@@ -37,7 +37,7 @@ const logger = winston.createLogger({
         // File di log rotanti per tutte le informazioni
         new winston.transports.DailyRotateFile({
             filename: path.join(logDir, 'combined-%DATE%.log'),
-            datePattern: 'YYYY-MM-DD',
+            datePattern: 'DD-MM-YYYY',
             zippedArchive: true,
             maxSize: '20m',
             maxFiles: '14d',

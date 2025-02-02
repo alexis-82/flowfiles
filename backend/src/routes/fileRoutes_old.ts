@@ -147,8 +147,4 @@ router.post('/log-error', async (req: express.Request, res: express.Response) =>
     res.status(200).json({ success: true });
 });
 
-router.post('/upload-folder', upload.single('zipFile'), async (req, res) => {
-    await fileController.uploadFolder(req, res);
-});
-
 export default router;

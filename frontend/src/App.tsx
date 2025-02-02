@@ -1,16 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import FileBrowser, { FileBrowserHandle } from './components/FileBrowser';
 import TrashView from './components/TrashView';
 import Changelog from './components/Changelog';
+import { Settings } from './components/Settings';
+import Editor from './components/Editor';
 import { fileService } from './services/fileService';
-import toast from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
 import { TbMenu2 } from "react-icons/tb";
 
-function App() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [currentView, setCurrentView] = useState<'files' | 'trash' | 'changelog'>('files');
+function MainLayout() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [currentView, setCurrentView] = useState<'files' | 'trash' | 'settings' | 'changelog'>('files');
   const [storageUpdateTrigger, setStorageUpdateTrigger] = useState(0);
   const fileBrowserRef = useRef<FileBrowserHandle>(null);
 
@@ -55,6 +58,10 @@ function App() {
             onStorageUpdate={() => setStorageUpdateTrigger(prev => prev + 1)}
           />
         );
+      case 'settings':
+        return (
+          <Settings onSettingsUpdate={() => setStorageUpdateTrigger(prev => prev + 1)} />
+        );
       case 'changelog':
         return <Changelog />;
       default:
@@ -83,12 +90,26 @@ function App() {
         storageUpdateTrigger={storageUpdateTrigger}
         onResetPath={handleResetPath}
       />
-      <div className={`flex-1 overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
-        <div className="h-full overflow-auto">
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
+        <div className="flex-1 overflow-auto">
           {renderCurrentView()}
         </div>
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <div className="h-screen">
+        <Toaster position="top-right" />
+        <Routes>
+          <Route path="/" element={<MainLayout />} />
+          <Route path="/editor" element={<Editor />} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
 

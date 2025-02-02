@@ -1,14 +1,16 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import { TbLogs } from "react-icons/tb";
 import { IoIosArrowDown, } from "react-icons/io";
 import { fileService } from '../services/fileService';
 import toast from 'react-hot-toast';
+import { sweetAlert } from '../utils/sweetAlert';
 
 interface SidebarProps {
     isOpen: boolean;
     onDeleteAll: () => void;
-    onViewChange: (view: 'files' | 'trash' | 'changelog') => void;
-    currentView: 'files' | 'trash' | 'changelog';
+    onViewChange: (view: 'files' | 'trash' | 'settings' | 'changelog') => void;
+    currentView: 'files' | 'trash' | 'settings' | 'changelog';
     onRefreshFiles: () => void;
     storageUpdateTrigger?: number;
     onResetPath: () => void;
@@ -60,7 +62,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
 
     const handleDeleteAll = async () => {
-        if (window.confirm('Sei sicuro di voler spostare tutti i file nel cestino?')) {
+        const confirmed = await sweetAlert.confirm(
+            'Elimina tutto',
+            'Sei sicuro di voler spostare tutti i file nel cestino?',
+            'warning'
+        );
+        
+        if (confirmed) {
             try {
                 await fileService.deleteAllFiles();
                 await onDeleteAll();
@@ -73,15 +81,48 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
 
     const handleCreateFolder = async () => {
-        const folderName = prompt('Inserisci il nome della nuova cartella:');
+        const folderName = await sweetAlert.prompt(
+            'Nuova cartella',
+            'Inserisci il nome della nuova cartella'
+        );
+        
         if (folderName) {
             try {
                 await fileService.createFolder(folderName);
                 await onRefreshFiles();
                 toast.success('Cartella creata con successo');
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (error) {
                 toast.error('Errore durante la creazione della cartella');
+            }
+        }
+    };
+
+    const handleCreateFile = async () => {
+        const extensions = ['txt', 'js', 'ts', 'py', 'json', 'md', 'css', 'html', 'bat', 'sh', 'tsx', 'jsx',
+            'xml', 'yml', 'yaml', 'ini', 'conf', 'sh', 'bat', 'ps1', 'pyc',
+            'java', 'cpp', 'c', 'h', 'hpp', 'sql', 'env', 'gitignore'
+        ];
+        
+        const fileName = await sweetAlert.prompt(
+            'Nuovo file',
+            'Inserisci il nome del nuovo file'
+        );
+
+        if (fileName) {
+            const extension = fileName.split('.').pop()?.toLowerCase();
+            if (extension && extensions.includes(extension)) {
+                try {
+                    await fileService.createFile(fileName);
+                    await onRefreshFiles();
+                    toast.success('File creato con successo');
+                } catch (error) {
+                    toast.error('Errore durante la creazione del file');
+                }
+            } else {
+                await sweetAlert.error(
+                    'Estensione non valida',
+                    'L\'estensione del file non è supportata'
+                );
             }
         }
     };
@@ -105,27 +146,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <li>
                             <button
                                 onClick={() => onViewChange('files')}
-                                className={`flex items-center w-full p-2 ${
-                                    currentView === 'files' 
-                                        ? 'text-blue-600 bg-blue-50' 
-                                        : 'text-gray-700 hover:bg-blue-50'
-                                } rounded-lg`}
+                                className={`flex items-center w-full p-2 ${currentView === 'files'
+                                    ? 'text-blue-600 bg-blue-50'
+                                    : 'text-gray-700 hover:bg-blue-50'
+                                    } rounded-lg`}
                             >
                                 <span className="material-icons mr-3">folder</span>
                                 File Browser
-                            </button>
-                        </li>
-                        <li>
-                            <button
-                                onClick={() => onViewChange('trash')}
-                                className={`flex items-center w-full p-2 ${
-                                    currentView === 'trash' 
-                                        ? 'text-blue-600 bg-blue-50' 
-                                        : 'text-gray-700 hover:bg-blue-50'
-                                } rounded-lg`}
-                            >
-                                <span className="material-icons mr-3">delete</span>
-                                Cestino
                             </button>
                         </li>
                         <li>
@@ -147,34 +174,25 @@ const Sidebar: React.FC<SidebarProps> = ({
                                                 onClick={handleCreateFolder}
                                                 className="flex items-center w-full p-2 text-gray-600 hover:bg-blue-50 rounded-lg text-sm"
                                             >
-                                                <span className="material-icons text-sm mr-3">create_new_folder</span>
+                                                <span className="material-icons text-xl mr-3">create_new_folder</span>
                                                 Nuova cartella
                                             </button>
                                         </li>
                                         <li>
-                                            <a href="#" className="flex items-center p-2 text-gray-600 hover:bg-blue-50 rounded-lg text-sm">
-                                                <span className="material-icons text-sm mr-3">description</span>
-                                                Documenti
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a href="#" className="flex items-center p-2 text-gray-600 hover:bg-blue-50 rounded-lg text-sm">
-                                                <span className="material-icons text-sm mr-3">image</span>
-                                                Immagini
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a href="#" className="flex items-center p-2 text-gray-600 hover:bg-blue-50 rounded-lg text-sm">
-                                                <span className="material-icons text-sm mr-3">movie</span>
-                                                Video
-                                            </a>
+                                            <button
+                                                onClick={handleCreateFile}
+                                                className="flex items-center w-full p-2 text-gray-600 hover:bg-blue-50 rounded-lg text-sm"
+                                            >
+                                                <span className="material-icons text-xl mr-3">note_add</span>
+                                                Nuovo file
+                                            </button>
                                         </li>
                                         <li>
                                             <button
                                                 onClick={handleDeleteAll}
                                                 className="flex items-center w-full p-2 text-red-500 hover:bg-red-50 rounded-lg text-sm"
                                             >
-                                                <span className="material-icons text-sm mr-3">delete_forever</span>
+                                                <span className="material-icons text-xl mr-3">delete_forever</span>
                                                 Elimina tutto
                                             </button>
                                         </li>
@@ -184,12 +202,23 @@ const Sidebar: React.FC<SidebarProps> = ({
                         </li>
                         <li>
                             <button
+                                onClick={() => onViewChange('trash')}
+                                className={`flex items-center w-full p-2 ${currentView === 'trash'
+                                    ? 'text-blue-600 bg-blue-50'
+                                    : 'text-gray-700 hover:bg-blue-50'
+                                    } rounded-lg`}
+                            >
+                                <span className="material-icons mr-3">delete</span>
+                                Cestino
+                            </button>
+                        </li>
+                        <li>
+                            <button
                                 onClick={() => onViewChange('changelog')}
-                                className={`flex items-center w-full p-2 rounded-lg ${
-                                    currentView === 'changelog'
-                                        ? 'text-blue-600 bg-blue-50'
-                                        : 'text-gray-700 hover:bg-blue-50'
-                                }`}
+                                className={`flex items-center w-full p-2 rounded-lg ${currentView === 'changelog'
+                                    ? 'text-blue-600 bg-blue-50'
+                                    : 'text-gray-700 hover:bg-blue-50'
+                                    }`}
                             >
                                 <TbLogs className="w-6 h-6 mr-3" />
                                 Changelog
@@ -199,26 +228,36 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </nav>
 
                 {/* Storage Section */}
-                <div className="mt-4 p-4 bg-gray-150 rounded-lg">
+                <button
+                    onClick={() => onViewChange('settings')}
+                    className={`flex items-center w-full p-2 rounded-lg ${currentView === 'settings'
+                        ? 'text-blue-600 bg-blue-50'
+                        : 'text-gray-700 hover:bg-blue-50'
+                        }`}
+                >
+                    <span className="material-icons mr-3">settings</span>
+                    Impostazioni
+                </button>
+                <div className="p-4 bg-gray-150 rounded-lg">
                     <h3 className="text-sm font-semibold mb-2">Storage</h3>
                     {storageInfo && (
                         <div>
                             <div className="w-full h-2 bg-gray-200 rounded-full mb-2">
                                 <div
-                                    className={`h-full rounded-full ${getProgressBarColor(storageInfo.usedPercentage)}`}
-                                    style={{ width: `${storageInfo.usedPercentage}%` }}
+                                    className={`h-full rounded-full ${getProgressBarColor(storageInfo.usedPercentage || 0)}`}
+                                    style={{ width: `${storageInfo.usedPercentage || 0}%` }}
                                 />
                             </div>
                             <div className="text-xs text-gray-600">
-                                <p>{formatSize(storageInfo.usedStorage)} usati di {formatSize(storageInfo.totalStorage)}</p>
-                                <p className="mt-1">{storageInfo.usedPercentage.toFixed(1)}% usato</p>
+                                <p>{formatSize(storageInfo.usedStorage || 0)} usati di {formatSize(storageInfo.totalStorage || 1024 * 1024 * 1024)}</p>
+                                <p className="mt-1">{(storageInfo.usedPercentage || 0).toFixed(1)}% usato</p>
                             </div>
                         </div>
                     )}
                 </div>
 
                 {/* Footer */}
-                <p className="mt-2 text-xs text-gray-700 text-center">v1.3.0</p>
+                <p className="mt-2 text-xs text-gray-700 text-center">v1.4.0</p>
             </div>
         </div>
     );

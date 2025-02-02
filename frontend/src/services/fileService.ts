@@ -1,9 +1,10 @@
 import axios from 'axios';
 
 const API_URL = 'http://localhost:3000/api/files';
+const SETTINGS_URL = 'http://localhost:3000/api/settings';
 
 export const fileService = {
-  async uploadFile(file: File, path: string = '/') {
+  async uploadFile(file: File, path: string = '/', onProgress?: (progress: number) => void) {
     // Prima controlla lo spazio disponibile
     const storageInfo = await this.getStorageInfo();
     if (file.size + storageInfo.usedStorage > storageInfo.totalStorage) {
@@ -18,6 +19,12 @@ export const fileService = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress?.(percentCompleted);
+        }
+      }
     });
     return response.data;
   },
@@ -107,6 +114,66 @@ export const fileService = {
     } catch (error) {
       console.error('Error emptying trash:', error);
       throw error;
+    }
+  },
+
+  downloadFile: async (filepath: string) => {
+    try {
+      const response = await axios.get(`${API_URL}/download/${filepath}`, {
+        responseType: 'text'
+      });
+      return response;
+    } catch (error) {
+      console.error('Errore durante il download del file:', error);
+      throw error;
+    }
+  },
+
+  saveFile: async (filepath: string, content: string) => {
+    try {
+      const response = await axios.post(`${API_URL}/save`, {
+        path: filepath,
+        content: content
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Errore durante il salvataggio del file:', error);
+      throw error;
+    }
+  },
+
+  createFile: async (filename: string) => {
+    try {
+      const response = await axios.post(`${API_URL}/create`, { name: filename });
+      return response.data;
+    } catch (error) {
+      console.error('Errore durante la creazione del file:', error);
+      throw error;
+    }
+  },
+
+  async getStorageSettings() {
+    const response = await axios.get(`${SETTINGS_URL}/storage`);
+    return response.data;
+  },
+
+  async updateStorageSettings(storageLimit: number, fileSizeLimit: number) {
+    const response = await axios.post(`${SETTINGS_URL}/storage`, {
+      storageLimit,
+      fileSizeLimit
+    });
+    return response.data;
+  },
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  logError: async (message: string, details?: any) => {
+    try {
+      await axios.post(`${API_URL}/log-error`, {
+        message,
+        details
+      });
+    } catch (error) {
+      console.error('Error logging to server:', error);
     }
   }
 };
