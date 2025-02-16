@@ -1,15 +1,8 @@
 import { Request, Response } from 'express';
 import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { getConfigPath } from '../utils/paths';
 
-const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
-const __dirname = path.resolve(__filename);
-// PROD
-// const CONFIG_PATH = path.join(__dirname, '../../../config/constants.mjs');
-// DEV
-const CONFIG_PATH = path.join(__dirname, '../../config/constants.ts');
+const CONFIG_PATH = getConfigPath();
 
 // Funzione per ricaricare le costanti
 export const reloadConstants = async () => {

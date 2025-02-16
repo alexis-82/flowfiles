@@ -53,20 +53,6 @@ const Editor: React.FC = () => {
         }
     };
 
-    // const modules = {
-    //     toolbar: false,
-    //     keyboard: {
-    //         bindings: {
-    //             tab: {
-    //                 key: 9,
-    //                 handler: function() {
-    //                     return true;
-    //                 }
-    //             }
-    //         }
-    //     }
-    // };
-
     return (
         <div className="flex flex-col h-screen overflow-hidden">
             <div className="flex flex-1 overflow-hidden">

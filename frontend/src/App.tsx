@@ -103,7 +103,7 @@ function App() {
   return (
     <Router>
       <div className="h-screen">
-        <Toaster position="top-right" />
+        <Toaster position="bottom-right" />
         <Routes>
           <Route path="/" element={<MainLayout />} />
           <Route path="/editor" element={<Editor />} />

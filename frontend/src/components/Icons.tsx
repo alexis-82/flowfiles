@@ -1,14 +1,18 @@
 import React from 'react';
-import { FaDocker, FaGit, FaRegFilePdf } from 'react-icons/fa';
+import { FaCompactDisc, FaDocker, FaGit, FaRedhat, FaRegFilePdf } from 'react-icons/fa';
 import { GrDocumentTxt } from 'react-icons/gr';
+import { VscTerminalLinux, VscTerminalDebian } from "react-icons/vsc";
 import { RiFileExcel2Line, RiFileWord2Line } from 'react-icons/ri';
-import { Si7Zip, SiDotenv, SiHtml5, SiJavascript, SiPython, SiTypescript } from 'react-icons/si';
-import { 
+import { TfiMicrosoftAlt } from "react-icons/tfi";
+import { GoFileZip } from "react-icons/go";
+import { Si7Zip, SiApple, SiDotenv, SiHtml5, SiIos, SiJavascript, SiPython, SiTypescript } from 'react-icons/si';
+import {
     BsFileEarmarkCode,
     BsFiletypeExe,
     BsFiletypeMp3,
     BsFiletypeMp4,
-    BsFiletypeSql
+    BsFiletypeSql,
+    BsAndroid2
 } from 'react-icons/bs';
 import {
     TbUpload,
@@ -16,10 +20,7 @@ import {
     TbPhoto,
     TbFolderDown,
     TbEdit,
-    TbPackage,
     TbAppWindow,
-    TbTerminal2,
-    TbFileZip,
     TbMusic,
     TbFile,
     TbFileTypeCss,
@@ -82,9 +83,13 @@ export const FileIcon: React.FC<{ filename: string; className?: string }> = ({ f
             return <TbFileText {...props} />;
         case 'ts':
         case 'tsx':
+        case 'mts':
+        case 'mtsx':
             return <SiTypescript {...props} />;
         case 'jsx':
         case 'js':
+        case 'mjs':
+        case 'mjsx':
             return <SiJavascript {...props} />;
         case 'py':
         case 'pyw':
@@ -98,6 +103,11 @@ export const FileIcon: React.FC<{ filename: string; className?: string }> = ({ f
         case 'css':
             return <TbFileTypeCss {...props} />;
         case 'html':
+        case 'htm':
+        case 'html5':
+        case 'xhtml':
+        case 'xht':
+        case 'xhtm':
             return <SiHtml5 {...props} />;
         case 'xml':
         case 'yml':
@@ -126,23 +136,27 @@ export const FileIcon: React.FC<{ filename: string; className?: string }> = ({ f
         case 'psd1':
         case 'ps1xml':
         case 'pssc':
-            return <TbTerminal2 {...props} />;
+            return <TfiMicrosoftAlt {...props} />;
         case 'zip':
             return <TbZip {...props} />;
         case '7z':
             return <Si7Zip {...props} />;
         case 'rpm':
+            return <FaRedhat {...props} />;
         case 'pkg':
+            return <VscTerminalLinux {...props} />;
         case 'deb':
+            return <VscTerminalDebian {...props} />;
         case 'iso':
+            return <FaCompactDisc {...props} />;
         case 'dmg':
-            return <TbPackage {...props} />;
+            return <SiApple {...props} />;
         case 'gz':
         case 'tar':
         case 'bz2':
         case 'xz':
         case 'rar':
-            return <TbFileZip {...props} />;
+            return <GoFileZip {...props} />;
         case 'mp3':
             return <BsFiletypeMp3 {...props} />;
         case 'mp4':
@@ -163,6 +177,10 @@ export const FileIcon: React.FC<{ filename: string; className?: string }> = ({ f
             return <FaDocker {...props} />;
         case 'env':
             return <SiDotenv {...props} />;
+        case 'apk':
+            return <BsAndroid2 {...props} />;
+        case 'ipa':
+            return <SiIos {...props} />;
         default:
             return <TbFile {...props} />;
     }
@@ -170,4 +188,8 @@ export const FileIcon: React.FC<{ filename: string; className?: string }> = ({ f
 
 export const RenameIcon: React.FC<IconProps> = ({ className = "w-5 h-5" }) => (
     <TbEdit className={className} />
+);
+
+export const FolderIcon: React.FC<IconProps> = ({ className }) => (
+    <span className={`material-icons text-yellow-500 ${className}`}>folder</span>
 );

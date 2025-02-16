@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
 import { FileIcon, TrashIcon, DiskUploadIcon, DownloadIcon, RenameIcon } from './Icons';
 import { fileService } from '../services/fileService';
 import { useNavigate } from 'react-router-dom';
@@ -39,7 +39,10 @@ interface FileUploaderProps {
 const EDITABLE_EXTENSIONS = [
     'txt', 'md', 'json', 'js', 'jsx', 'ts', 'tsx', 'css', 'html',
     'xml', 'yml', 'yaml', 'ini', 'conf', 'sh', 'bat', 'ps1', 'py',
-    'java', 'cpp', 'c', 'h', 'hpp', 'sql', 'env', 'gitignore'
+    'java', 'cpp', 'c', 'h', 'hpp', 'sql', 'env', 'gitignore', 'md', 'markdown',
+    'gitkeep', 'csv', 'xlsx', 'xls', 'doc', 'docx', 'ppt', 'pptx', 'odt', 'ods',
+    'odp', 'txt', 'rtf', 'csv', 'tsv', 'log', 'bak', 'tmp', 'old', 'backup', 'cache',
+    'temp', 'Dockerfile', 'dockerignore', 'dockerfile', 'info'
 ];
 
 const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFolderUpload, onStorageUpdate }) => {
@@ -141,6 +144,21 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
         const items = event.dataTransfer.items;
         const filesToUpload: File[] = [];
 
+        // Gestione dei file diretti
+        const directFiles = Array.from(event.dataTransfer.files);
+        if (directFiles.length > 0 && !items[0].webkitGetAsEntry()?.isDirectory) {
+            for (const file of directFiles) {
+                try {
+                    await onUpload(file, currentPath);
+                } catch (error) {
+                    console.error('Errore durante il caricamento del file:', error);
+                    customToast.error(`Errore durante il caricamento di ${file.name}`);
+                }
+            }
+            return;
+        }
+
+        // Gestione delle cartelle
         for (let i = 0; i < items.length; i++) {
             const item = items[i].webkitGetAsEntry();
             if (item && item.isDirectory) {
@@ -150,11 +168,6 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
                     console.error('handleFolderDrop: error processing directory', error);
                     customToast.error('Errore durante il caricamento della cartella');
                     return;
-                }
-            } else if (item && item.isFile) {
-                const file = event.dataTransfer.files[i];
-                if (file) {
-                    filesToUpload.push(file);
                 }
             }
         }
@@ -225,7 +238,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
             />
             <DiskUploadIcon size={64} />
             <p className="text-gray-800 mt-6 text-lg font-semibold">
-                Trascina e rilascia una cartella qui o <span className="text-blue-600">clicca</span> per selezionare i file
+                Trascina e rilascia file o cartelle qui o <span className="text-blue-600">clicca</span> per selezionare i file
             </p>
             <p className="text-gray-500 text-sm mt-2">
                 {currentPath === '/' ? 'Carica nella cartella principale' : `Carica in: ${currentPath}`}
@@ -432,6 +445,9 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
     const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
     const [selectedTextFile, setSelectedTextFile] = useState<string | null>(null);
     const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
+    const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+    const createMenuRef = useRef<HTMLDivElement>(null);
+    const createButtonRef = useRef<HTMLButtonElement>(null);
 
     const loadFiles = async (_currentPath?: string) => {
         try {
@@ -630,6 +646,40 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
         }
     };
 
+    const handleCreateFile = async () => {
+        const { value: fileName } = await Swal.fire({
+            title: 'Crea nuovo file',
+            input: 'text',
+            inputLabel: 'Nome del file',
+            inputPlaceholder: 'Inserisci il nome del nuovo file',
+            showCancelButton: true,
+            inputValidator: (value) => {
+                if (!value) {
+                    return 'Devi inserire un nome per il file!';
+                }
+                return null;
+            }
+        });
+
+        if (fileName) {
+            try {
+                await fileService.createFile(fileName);
+                await loadFiles();
+                Swal.fire(
+                    'Creato!',
+                    'Il file è stato creato con successo.',
+                    'success'
+                );
+            } catch (error) {
+                Swal.fire(
+                    'Errore!',
+                    'Si è verificato un errore durante la creazione del file.',
+                    'error'
+                );
+            }
+        }
+    };
+
     const handleFileDoubleClick = async (item: FileData) => {
         const extension = item.name.split('.').pop()?.toLowerCase() || '';
         if (EDITABLE_EXTENSIONS.includes(extension)) {
@@ -676,6 +726,27 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
         return expandedPaths.has(path);
     };
 
+    const toggleCreateMenu = () => {
+        setIsCreateMenuOpen(!isCreateMenuOpen);
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (isCreateMenuOpen &&
+                createMenuRef.current &&
+                createButtonRef.current &&
+                event.target instanceof Node &&
+                !createMenuRef.current.contains(event.target) &&
+                !createButtonRef.current.contains(event.target)) {
+                setIsCreateMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isCreateMenuOpen]);
 
     if (loading) {
         return <div className="text-center py-8">Caricamento...</div>;
@@ -734,6 +805,40 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
 
                             {/* Navigation and Current Path */}
                             <div className="mb-1 flex items-center justify-between space-x-4">
+                                <div className="relative">
+                                    <button
+                                        ref={createButtonRef}
+                                        onClick={toggleCreateMenu}
+                                        className="flex items-center px-3 py-2 text-gray-700 hover:bg-blue-50 rounded-lg transition-colors"
+                                    >
+                                        <span className="material-icons mr-2">add</span>
+                                        Nuovo
+                                    </button>
+                                    {isCreateMenuOpen && (
+                                        <div ref={createMenuRef} className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-xl z-10">
+                                            <button
+                                                onClick={() => {
+                                                    handleCreateFolder();
+                                                    toggleCreateMenu();
+                                                }}
+                                                className="flex items-center w-full text-left px-4 py-2 text-sm hover:bg-blue-50"
+                                            >
+                                                <span className="material-icons mr-2">create_new_folder</span>
+                                                Nuova cartella
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    handleCreateFile();
+                                                    toggleCreateMenu();
+                                                }}
+                                                className="flex items-center w-full text-left px-4 py-2 text-sm hover:bg-blue-50"
+                                            >
+                                                <span className="material-icons mr-2">note_add</span>
+                                                Nuovo file
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                                 <button
                                     onClick={() => {
                                         setCurrentPath('/');
@@ -745,13 +850,6 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                     Home Directory
                                 </button>
 
-                                <button
-                                    onClick={handleCreateFolder}
-                                    className="flex items-center px-3 py-2 text-gray-700 hover:bg-blue-50 rounded-lg transition-colors"
-                                >
-                                    <span className="material-icons mr-2">create_new_folder</span>
-                                    Nuova Cartella
-                                </button>
 
                                 <div className="flex-1 px-2 py-1 bg-gray-50 rounded-lg text-gray-600 flex items-center">
                                     <span className="material-icons mr-2">folder_open</span>
@@ -797,7 +895,8 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                 </div>
             </div>
             <footer className="text-center py-4 bg-gray-100">
-                <p className="text-gray-500">2024 Alessio Abrugiati | Powered by Caffeine and Code</p>
+                <p className="text-gray-500">© {new Date().getFullYear()} Alessio Abrugiati | Powered by Caffeine and Code</p>
+                <a className="justify-center text-gray-500" rel="stylesheet" href="https://www.alexis82.it" target="_blank">www.alexis82.it</a>
             </footer>
         </div>
     );

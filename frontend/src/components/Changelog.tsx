@@ -8,6 +8,17 @@ interface ChangelogEntry {
 
 const changelogData: ChangelogEntry[] = [
     {
+        version: "1.4.1",
+        date: "16-02-2025",
+        changes: [
+            "Fix per il drag and drop dei file",
+            "Fix per la visualizzazione delle cartelle e dei file nel cestino",
+            "Spostato visualizzazione notifiche in basso a destra",
+            "Aggiunto menù a tendina per creare file e cartelle anche nella Home Page",
+            "Aggiunte nuove icone per i tipi di file",
+        ]
+    },
+    {
         version: "1.4.0",
         date: "02-02-2025",
         changes: [
@@ -48,7 +59,7 @@ const changelogData: ChangelogEntry[] = [
     },
     {
         version: "1.2.0",
-        date: "07-01-2025",
+        date: "08-01-2025",
         changes: [
             "Aggiunta di una sidebar",
             "Implementato sezione Changelog",

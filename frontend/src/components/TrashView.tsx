@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from 'react';
-import { FileIcon, RestoreIcon, TrashIcon } from './Icons';
+import { FileIcon, RestoreIcon, TrashIcon, FolderIcon } from './Icons';
 import { fileService } from '../services/fileService';
 import toast from 'react-hot-toast';
 import { sweetAlert } from '../utils/sweetAlert';
@@ -132,7 +132,11 @@ const TrashView: React.FC<TrashViewProps> = ({ onFilesUpdate, onStorageUpdate })
                                 <tr key={item.path} className="border-b last:border-b-0 hover:bg-gray-100 transition-colors">
                                     <td className="p-3 flex items-center">
                                         <div className="flex items-center">
-                                            <FileIcon filename={item.name} />
+                                            {item.type === 'folder' ? (
+                                                <FolderIcon />
+                                            ) : (
+                                                <FileIcon filename={item.name} />
+                                            )}
                                             <span className="ml-3 text-gray-800">{item.name}</span>
                                         </div>
                                     </td>

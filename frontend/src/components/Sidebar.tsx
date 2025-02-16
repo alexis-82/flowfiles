@@ -257,7 +257,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 {/* Footer */}
-                <p className="mt-2 text-xs text-gray-700 text-center">v1.4.0</p>
+                <p className="mt-2 text-xs text-gray-700 text-center">v1.4.1</p>
             </div>
         </div>
     );
