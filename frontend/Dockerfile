@@ -19,7 +19,7 @@ COPY --chown=node:node . .
 RUN npm run build
 
 # Espone la porta
-EXPOSE 80
+EXPOSE 8080
 
 # Comando di avvio
 # CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "80"]
