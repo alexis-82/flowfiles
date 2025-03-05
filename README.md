@@ -96,6 +96,11 @@ Lo script:
 - Avvia il frontend sulla porta predefinita
 - Gestisce automaticamente l'arresto dei servizi quando si termina lo script
 
+# Risolvere problema con WSL
+- Lanciare il seguente comando prima di avviare il file docker-compose:
+```
+find . -name "*:Zone.Identifier" -delete
+```
 
 ---
 
@@ -196,6 +201,12 @@ The script will:
 - Start the backend on port 3000
 - Start the frontend on the default port
 - Automatically handle service shutdown when the script is terminated
+  
+# Fix problem with WSL
+- Run the following command before starting the docker-compose file:
+```
+find . -name "*:Zone.Identifier" -delete
+```
 
 ## License
 
