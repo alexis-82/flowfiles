@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { fileService } from '../services/fileService';
 import toast from 'react-hot-toast';
+// import { ThemeContext } from '../App';
 
 interface LocationState {
     content: string;
@@ -20,6 +21,7 @@ const Editor: React.FC = () => {
     const navigate = useNavigate();
     const [content, setContent] = useState('');
     const [filePath, setFilePath] = useState('');
+    // const { isDarkMode } = useContext(ThemeContext);
 
     useEffect(() => {
         const state = location.state as LocationState;
@@ -58,23 +60,23 @@ const Editor: React.FC = () => {
             <div className="flex flex-1 overflow-hidden">
                 <div className="flex-1 flex flex-col overflow-hidden">
                     <div className="flex-1 overflow-auto">
-                        <div className="min-h-screen bg-gray-100">
+                        <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
                             <div className="max-w-4xl mx-auto p-6">
-                                <div className="bg-white shadow-xl rounded-xl p-6">
+                                <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl p-6">
                                     <div className="flex justify-between items-center mb-4">
-                                        <h2 className="text-xl font-semibold text-gray-800">
+                                        <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
                                             Modifica: {filePath.split('/').pop()}
                                         </h2>
                                         <div className="space-x-2">
                                             <button
                                                 onClick={handleSave}
-                                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
                                             >
                                                 Salva
                                             </button>
                                             <button
                                                 onClick={() => navigate('/')}
-                                                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                                                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 transition-colors"
                                             >
                                                 Chiudi
                                             </button>
@@ -84,7 +86,7 @@ const Editor: React.FC = () => {
                                     <textarea
                                         value={content}
                                         onChange={(e) => setContent(e.target.value)}
-                                        className="w-full h-[calc(100vh-250px)] p-4 border rounded-lg font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full h-[calc(100vh-250px)] p-4 border rounded-lg font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600"
                                         spellCheck={false}
                                     />
                                 </div>

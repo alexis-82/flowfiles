@@ -120,7 +120,7 @@ export const fileService = {
   downloadFile: async (filepath: string) => {
     try {
       const response = await axios.get(`${API_URL}/download/${filepath}`, {
-        responseType: 'text'
+        responseType: 'arraybuffer'
       });
       return response;
     } catch (error) {

@@ -8,6 +8,20 @@ interface ChangelogEntry {
 
 const changelogData: ChangelogEntry[] = [
     {
+        version: "1.4.2",
+        date: "09-03-2025",
+        changes: [
+            "Aggiunto il supporto di visualizzazione delle immagini",
+            "Aggiunto il supporto di visualizzazione dei file pdf",
+            "Integrato in Impostazioni un sistema di aggiornamento automatico",
+            "Fix per la visualizzazione delle cartelle nella Home Page",
+            "Script per l'installazione di Flowfiles con PM2 e avvio automatico al boot",
+            "Script per l'installazione di Flowfiles e configurazione di Systemd per avvio automatico al boot",
+            "Implementato lo switch mode (light/dark)",
+            "Fix dello storage dopo l'eliminazione di un singolo file dal cestino",
+        ]
+    },
+    {
         version: "1.4.1",
         date: "16-02-2025",
         changes: [
@@ -50,8 +64,8 @@ const changelogData: ChangelogEntry[] = [
             "Aggiunte nuove icone per i tipi di file",
             "Fix per il layout delle colonne nella tabella dei files",
             "Fix Path post eliminazione file o cartella",
-            "Impostato limite di storage a 2GB di default (funzionante)",
-            "Implementato limite di file in upload a 1GB di default (funzionante)",
+            "Impostato limite di storage a 2GB di default",
+            "Implementato limite di file in upload a 1GB di default",
             "Aggiunta la funzionalità di spostare i file nel cestino",
             "Aggiunta la funzionalità di ripristinare i file dal cestino",
             "Aggiunta la funzionalità di eliminare definitivamente i file dal cestino",
@@ -59,7 +73,7 @@ const changelogData: ChangelogEntry[] = [
     },
     {
         version: "1.2.0",
-        date: "08-01-2025",
+        date: "07-01-2025",
         changes: [
             "Aggiunta di una sidebar",
             "Implementato sezione Changelog",
@@ -91,21 +105,21 @@ const changelogData: ChangelogEntry[] = [
 
 const Changelog: React.FC = () => {
     return (
-        <div className="h-full overflow-y-auto pb-6">
-            <div className="max-w-4xl mx-auto mt-6 bg-white shadow-xl rounded-xl p-6">
-                <h1 className="text-3xl font-bold text-center mb-8" style={{ color: '#209CEE' }}>Changelog</h1>
+        <div className="h-full overflow-y-auto pb-6 bg-gray-100 dark:bg-gray-900">
+            <div className="max-w-4xl mx-auto mt-6 bg-white dark:bg-gray-800 shadow-xl rounded-xl p-6">
+                <h1 className="text-3xl font-bold text-center mb-8 text-blue-500">Changelog</h1>
                 <div className="space-y-8">
                     {changelogData.map((entry, index) => (
                         <div key={index} className="border-l-4 border-blue-500 pl-4">
                             <div className="flex items-baseline justify-between">
-                                <h2 className="text-xl font-semibold text-gray-800">
+                                <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
                                     Version {entry.version}
                                 </h2>
-                                <span className="text-sm text-gray-500">{entry.date}</span>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">{entry.date}</span>
                             </div>
                             <ul className="mt-2 space-y-2">
                                 {entry.changes.map((change, changeIndex) => (
-                                    <li key={changeIndex} className="text-gray-600 flex items-start">
+                                    <li key={changeIndex} className="text-gray-600 dark:text-gray-300 flex items-start">
                                         <span className="mr-2">•</span>
                                         {change}
                                     </li>

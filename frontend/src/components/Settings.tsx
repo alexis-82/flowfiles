@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { fileService } from '../services/fileService';
 import toast from 'react-hot-toast';
+import { ThemeContext } from '../App';
+import Swal from 'sweetalert2';
 
 interface SettingsProps {
     onSettingsUpdate: () => void;
@@ -12,11 +14,23 @@ interface StorageConfig {
     fileSizeLimit: number;
 }
 
+interface GithubRelease {
+    tag_name: string;
+    body: string;
+    html_url: string;
+}
+
+const CURRENT_VERSION = 'v1.4.2';
+
 export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
     const [config, setConfig] = useState<StorageConfig>({
         storageLimit: 2,
         fileSizeLimit: 1
     });
+    const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [updateAvailable, setUpdateAvailable] = useState(false);
+    const { isDarkMode, toggleTheme } = useContext(ThemeContext);
 
     useEffect(() => {
         fetchCurrentConfig();
@@ -47,28 +61,148 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
         }
     };
 
+    const compareVersions = (current: string, latest: string): number => {
+        const currentParts = current.replace('v', '').split('.').map(Number);
+        const latestParts = latest.replace('v', '').split('.').map(Number);
+        
+        for (let i = 0; i < 3; i++) {
+            if (latestParts[i] > currentParts[i]) return -1;
+            if (latestParts[i] < currentParts[i]) return 1;
+        }
+        return 0;
+    };
+
+    const installUpdate = async () => {
+        setIsUpdating(true);
+        try {
+            // Esegui lo script di aggiornamento appropriato in base al sistema operativo
+            const isWindows = navigator.platform.toLowerCase().includes('win');
+            const scriptPath = isWindows ? '/scripts/update.bat' : '/scripts/update.sh';
+            
+            await Swal.fire({
+                title: 'Installazione aggiornamento',
+                html: 'Installazione in corso...',
+                timerProgressBar: true,
+                didOpen: () => {
+                    Swal.showLoading();
+                },
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                allowEnterKey: false
+            });
+
+            // Esegui lo script tramite il backend
+            const response = await fetch('/api/execute-update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ script: scriptPath })
+            });
+
+            if (!response.ok) {
+                throw new Error('Errore durante l\'installazione');
+            }
+
+            await Swal.fire({
+                title: 'Aggiornamento completato',
+                text: 'L\'applicazione verrà riavviata per applicare gli aggiornamenti',
+                icon: 'success',
+                confirmButtonText: 'Riavvia ora'
+            });
+
+            // Riavvia l'applicazione
+            window.location.reload();
+        } catch (error) {
+            console.error('Errore durante l\'installazione:', error);
+            toast.error('Errore durante l\'installazione dell\'aggiornamento');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const checkForUpdates = async () => {
+        setIsCheckingUpdate(true);
+        try {
+            const response = await fetch('https://api.github.com/repos/alexis-82/flowfiles/releases/latest');
+            const data: GithubRelease = await response.json();
+            
+            if (compareVersions(CURRENT_VERSION, data.tag_name) < 0) {
+                setUpdateAvailable(true);
+                const result = await Swal.fire({
+                    title: 'Aggiornamento disponibile',
+                    html: `
+                        <div class="text-left">
+                            <p class="mb-2">È disponibile una nuova versione: ${data.tag_name}</p>
+                            <p class="text-sm mb-4">Note di rilascio:</p>
+                            <div class="text-sm bg-gray-100 p-3 rounded max-h-40 overflow-y-auto">
+                                ${data.body.replace(/\n/g, '<br>')}
+                            </div>
+                            <p class="mt-4 text-sm">Puoi installare l'aggiornamento automaticamente usando il bottone "Installa aggiornamento" oppure scaricarlo manualmente da GitHub.</p>
+                        </div>
+                    `,
+                    icon: 'info',
+                    showCancelButton: true,
+                    confirmButtonText: 'Vai alla pagina di download',
+                    cancelButtonText: 'Più tardi'
+                });
+
+                if (result.isConfirmed) {
+                    window.open(data.html_url, '_blank');
+                }
+            } else {
+                setUpdateAvailable(false);
+                toast.success('Sei già alla versione più recente');
+            }
+        } catch (error) {
+            toast.error('Errore durante la verifica degli aggiornamenti');
+        } finally {
+            setIsCheckingUpdate(false);
+        }
+    };
+
     return (
         <div className="flex flex-col min-h-screen">
             <div className="flex-1 overflow-auto">
-                <div className="max-w-4xl mx-auto p-6 mt-6 bg-white shadow-xl rounded-xl mb-6">
+                <div className="max-w-4xl mx-auto p-6 mt-6 bg-white dark:bg-gray-800 shadow-xl rounded-xl mb-6">
                     <div className="flex justify-between items-center mb-6">
                         <div className="flex-1"></div>
-                        <h1 className="text-3xl font-bold text-center flex-1" style={{ color: '#209CEE' }}>Impostazioni</h1>
+                        <h1 className="text-3xl font-bold text-center flex-1 text-blue-500">Impostazioni</h1>
                         <div className="flex-1"></div>
                     </div>
 
-                    <div className="bg-gray-50 rounded-lg p-6 shadow">
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 shadow mb-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200">Tema</h2>
+                                <p className="text-gray-600 dark:text-gray-400">Switch tra tema Light e Dark</p>
+                            </div>
+                            <button
+                                onClick={toggleTheme}
+                                className="relative inline-flex items-center h-6 rounded-full w-11 bg-gray-200 dark:bg-blue-600 focus:outline-none"
+                            >
+                                <span className="sr-only">Cambia tema</span>
+                                <span
+                                    className={`${
+                                        isDarkMode ? 'translate-x-6' : 'translate-x-1'
+                                    } inline-block w-4 h-4 transform bg-white rounded-full transition-transform duration-200 ease-in-out`}
+                                />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 shadow">
                         <div className="mb-6">
-                            <h2 className="text-2xl font-semibold text-gray-700 text-center mb-4">Configurazione Storage</h2>
-                            <p className="text-gray-600 text-center mb-6">
+                            <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-200 text-center mb-4">Configurazione Storage</h2>
+                            <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
                                 Configura i limiti di storage per il tuo file system. Questi limiti si applicano a tutti i file e cartelle nel sistema.
                             </p>
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="bg-white p-6 rounded-lg shadow-sm space-y-2">
-                                    <label className="block text-lg font-medium text-gray-700">
+                                <div className="bg-white dark:bg-gray-600 p-6 rounded-lg shadow-sm space-y-2">
+                                    <label className="block text-lg font-medium text-gray-700 dark:text-gray-200">
                                         Limite Storage Totale
                                     </label>
                                     <div className="mt-1 relative rounded-md shadow-sm">
@@ -79,19 +213,19 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
                                                 const value = e.target.value === '' ? 0 : Number(e.target.value);
                                                 setConfig({ ...config, storageLimit: value });
                                             }}
-                                            className="block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg"
+                                            className="block w-full px-4 py-2 border border-gray-300 dark:border-gray-500 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg"
                                         />
                                         <div className="absolute inset-y-0 right-8 pr-3 flex items-center pointer-events-none">
-                                            <span className="text-gray-500 text-lg">GB</span>
+                                            <span className="text-gray-500 dark:text-gray-400 text-lg">GB</span>
                                         </div>
                                     </div>
-                                    <p className="text-sm text-gray-500 mt-2">
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                                         Spazio totale disponibile per tutti i file
                                     </p>
                                 </div>
 
-                                <div className="bg-white p-6 rounded-lg shadow-sm space-y-2">
-                                    <label className="block text-lg font-medium text-gray-700">
+                                <div className="bg-white dark:bg-gray-600 p-6 rounded-lg shadow-sm space-y-2">
+                                    <label className="block text-lg font-medium text-gray-700 dark:text-gray-200">
                                         Limite Dimensione File
                                     </label>
                                     <div className="mt-1 relative rounded-md shadow-sm">
@@ -102,13 +236,13 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
                                                 const value = e.target.value === '' ? 0 : Number(e.target.value);
                                                 setConfig({ ...config, fileSizeLimit: value });
                                             }}
-                                            className="block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg"
+                                            className="block w-full px-4 py-2 border border-gray-300 dark:border-gray-500 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg"
                                         />
                                         <div className="absolute inset-y-0 right-8 pr-3 flex items-center pointer-events-none">
-                                            <span className="text-gray-500 text-lg">GB</span>
+                                            <span className="text-gray-500 dark:text-gray-400 text-lg">GB</span>
                                         </div>
                                     </div>
-                                    <p className="text-sm text-gray-500 mt-2">
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                                         Dimensione massima consentita per singolo file
                                     </p>
                                 </div>
@@ -123,6 +257,44 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 shadow mt-8">
+                        <div className="mb-6">
+                            <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-200 text-center mb-4">Aggiornamento</h2>
+                            <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
+                                Gestisci gli aggiornamenti del sistema e verifica la disponibilità di nuove versioni.
+                            </p>
+                        </div>
+
+                        <div className="bg-white dark:bg-gray-600 p-6 rounded-lg shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-medium text-gray-700 dark:text-gray-200">Versione Attuale</h3>
+                                    <p className="text-gray-500 dark:text-gray-400 mt-1">{CURRENT_VERSION}</p>
+                                </div>
+                                <div className="flex space-x-4">
+                                    <button
+                                        onClick={installUpdate}
+                                        disabled={!updateAvailable || isUpdating || isCheckingUpdate}
+                                        className={`px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors ${
+                                            (!updateAvailable || isUpdating || isCheckingUpdate) ? 'opacity-50 cursor-not-allowed' : ''
+                                        }`}
+                                    >
+                                        {isUpdating ? 'Installazione...' : 'Installa aggiornamento'}
+                                    </button>
+                                    <button
+                                        onClick={checkForUpdates}
+                                        disabled={isCheckingUpdate || isUpdating}
+                                        className={`px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors ${
+                                            (isCheckingUpdate || isUpdating) ? 'opacity-50 cursor-not-allowed' : ''
+                                        }`}
+                                    >
+                                        {isCheckingUpdate ? 'Verifica in corso...' : 'Verifica Aggiornamenti'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

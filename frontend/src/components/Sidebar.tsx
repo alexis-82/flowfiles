@@ -5,6 +5,7 @@ import { IoIosArrowDown, } from "react-icons/io";
 import { fileService } from '../services/fileService';
 import toast from 'react-hot-toast';
 import { sweetAlert } from '../utils/sweetAlert';
+// import { ThemeContext } from '../App';
 
 interface SidebarProps {
     isOpen: boolean;
@@ -34,6 +35,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
     const [isFilesOpen, setIsFilesOpen] = useState(false);
     const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
+    // const { isDarkMode } = useContext(ThemeContext);
+
     useEffect(() => {
         const fetchStorageInfo = async () => {
             try {
@@ -128,16 +131,17 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
 
     return (
-        <div className={`fixed left-0 top-0 h-full w-64 bg-white shadow-lg p-4 z-40 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'
-            }`}>
+        <div className={`fixed left-0 top-0 h-full w-64 bg-white dark:bg-gray-800 shadow-lg p-4 z-40 transition-transform duration-300 ${
+            isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
             <div className="flex flex-col h-full">
                 {/* Logo/Header */}
                 <div className="mb-8">
                     <div className="flex items-center justify-center">
                         <img src="/favicon.ico" alt="FlowFiles Icon" className="mr-2" />
-                        <h1 className="text-2xl font-bold" style={{ color: '#209CEE' }}>FlowFiles</h1>
+                        <h1 className="text-2xl font-bold text-blue-500">FlowFiles</h1>
                     </div>
-                    <p className="text-sm text-gray-500 text-center">File Management System</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center">File Management System</p>
                 </div>
 
                 {/* Menu Items */}
@@ -146,10 +150,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <li>
                             <button
                                 onClick={() => onViewChange('files')}
-                                className={`flex items-center w-full p-2 ${currentView === 'files'
-                                    ? 'text-blue-600 bg-blue-50'
-                                    : 'text-gray-700 hover:bg-blue-50'
-                                    } rounded-lg`}
+                                className={`flex items-center w-full p-2 ${
+                                    currentView === 'files'
+                                        ? 'text-blue-600 bg-blue-50 dark:bg-blue-900 dark:text-blue-400'
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900'
+                                } rounded-lg`}
                             >
                                 <span className="material-icons mr-3">folder</span>
                                 File Browser
@@ -159,7 +164,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                             <div className="flex flex-col">
                                 <button
                                     onClick={() => setIsFilesOpen(!isFilesOpen)}
-                                    className="flex items-center justify-between w-full p-2 text-gray-700 hover:bg-blue-50 rounded-lg"
+                                    className="flex items-center justify-between w-full p-2 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg"
                                 >
                                     <div className="flex items-center">
                                         <span className="material-icons mr-3">folder</span>
@@ -172,7 +177,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         <li>
                                             <button
                                                 onClick={handleCreateFolder}
-                                                className="flex items-center w-full p-2 text-gray-600 hover:bg-blue-50 rounded-lg text-sm"
+                                                className="flex items-center w-full p-2 text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg text-sm"
                                             >
                                                 <span className="material-icons text-xl mr-3">create_new_folder</span>
                                                 Nuova cartella
@@ -181,7 +186,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         <li>
                                             <button
                                                 onClick={handleCreateFile}
-                                                className="flex items-center w-full p-2 text-gray-600 hover:bg-blue-50 rounded-lg text-sm"
+                                                className="flex items-center w-full p-2 text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg text-sm"
                                             >
                                                 <span className="material-icons text-xl mr-3">note_add</span>
                                                 Nuovo file
@@ -190,10 +195,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         <li>
                                             <button
                                                 onClick={handleDeleteAll}
-                                                className="flex items-center w-full p-2 text-red-500 hover:bg-red-50 rounded-lg text-sm"
+                                                className="flex items-center w-full p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg text-sm"
                                             >
-                                                <span className="material-icons text-xl mr-3">delete_forever</span>
-                                                Elimina tutto
+                                                <span className="material-icons text-xl mr-3">delete</span>
+                                                Cestina tutti i file
                                             </button>
                                         </li>
                                     </ul>
@@ -203,10 +208,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <li>
                             <button
                                 onClick={() => onViewChange('trash')}
-                                className={`flex items-center w-full p-2 ${currentView === 'trash'
-                                    ? 'text-blue-600 bg-blue-50'
-                                    : 'text-gray-700 hover:bg-blue-50'
-                                    } rounded-lg`}
+                                className={`flex items-center w-full p-2 ${
+                                    currentView === 'trash'
+                                        ? 'text-blue-600 bg-blue-50 dark:bg-blue-900 dark:text-blue-400'
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900'
+                                } rounded-lg`}
                             >
                                 <span className="material-icons mr-3">delete</span>
                                 Cestino
@@ -215,10 +221,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <li>
                             <button
                                 onClick={() => onViewChange('changelog')}
-                                className={`flex items-center w-full p-2 rounded-lg ${currentView === 'changelog'
-                                    ? 'text-blue-600 bg-blue-50'
-                                    : 'text-gray-700 hover:bg-blue-50'
-                                    }`}
+                                className={`flex items-center w-full p-2 rounded-lg ${
+                                    currentView === 'changelog'
+                                        ? 'text-blue-600 bg-blue-50 dark:bg-blue-900 dark:text-blue-400'
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900'
+                                }`}
                             >
                                 <TbLogs className="w-6 h-6 mr-3" />
                                 Changelog
@@ -230,34 +237,35 @@ const Sidebar: React.FC<SidebarProps> = ({
                 {/* Storage Section */}
                 <button
                     onClick={() => onViewChange('settings')}
-                    className={`flex items-center w-full p-2 rounded-lg ${currentView === 'settings'
-                        ? 'text-blue-600 bg-blue-50'
-                        : 'text-gray-700 hover:bg-blue-50'
-                        }`}
+                    className={`flex items-center w-full mb-3 p-2 rounded-lg ${
+                        currentView === 'settings'
+                            ? 'text-blue-600 bg-blue-50 dark:bg-blue-900 dark:text-blue-400'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900'
+                    }`}
                 >
                     <span className="material-icons mr-3">settings</span>
                     Impostazioni
                 </button>
-                <div className="p-4 bg-gray-150 rounded-lg">
-                    <h3 className="text-sm font-semibold mb-2">Storage</h3>
+                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <h3 className="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Storage</h3>
                     {storageInfo && (
                         <div>
-                            <div className="w-full h-2 bg-gray-200 rounded-full mb-2">
+                            <div className="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-full mb-2">
                                 <div
                                     className={`h-full rounded-full ${getProgressBarColor(storageInfo.usedPercentage || 0)}`}
                                     style={{ width: `${storageInfo.usedPercentage || 0}%` }}
                                 />
                             </div>
-                            <div className="text-xs text-gray-600">
-                                <p>{formatSize(storageInfo.usedStorage || 0)} usati di {formatSize(storageInfo.totalStorage || 1024 * 1024 * 1024)}</p>
-                                <p className="mt-1">{(storageInfo.usedPercentage || 0).toFixed(1)}% usato</p>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">
+                                <p>{formatSize(storageInfo.usedStorage)} di {formatSize(storageInfo.totalStorage)} utilizzati</p>
+                                {/* <p className="mt-1">{formatSize(storageInfo.freeStorage)} disponibili</p> */}
                             </div>
                         </div>
                     )}
                 </div>
 
                 {/* Footer */}
-                <p className="mt-2 text-xs text-gray-700 text-center">v1.4.1</p>
+                <p className="mt-2 text-xs text-gray-700 dark:text-gray-300 text-center">v1.4.2</p>
             </div>
         </div>
     );

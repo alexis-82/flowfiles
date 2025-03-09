@@ -45,6 +45,8 @@ const EDITABLE_EXTENSIONS = [
     'temp', 'Dockerfile', 'dockerignore', 'dockerfile', 'info'
 ];
 
+const PREVIEW_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'ico', 'svg', 'webp', 'pdf'];
+
 const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFolderUpload, onStorageUpdate }) => {
     const [dragOver, setDragOver] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -238,7 +240,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
             />
             <DiskUploadIcon size={64} />
             <p className="text-gray-800 mt-6 text-lg font-semibold">
-                Trascina e rilascia file o cartelle qui o <span className="text-blue-600">clicca</span> per selezionare i file
+                Trascina e rilascia file o cartelle qui oppure <span className="text-blue-600">clicca</span> per selezionare i file
             </p>
             <p className="text-gray-500 text-sm mt-2">
                 {currentPath === '/' ? 'Carica nella cartella principale' : `Carica in: ${currentPath}`}
@@ -264,8 +266,9 @@ interface FileItemProps {
     onUpload: (file: globalThis.File, targetPath: string) => Promise<void>;
     level: number;
     expanded: boolean;
-    onToggle: () => void;
+    onToggle: (path: string) => void;
     onDoubleClick: (item: FileData) => void;
+    isPathExpanded: (path: string) => boolean;
 }
 
 const FileItem: React.FC<FileItemProps> = ({
@@ -277,7 +280,7 @@ const FileItem: React.FC<FileItemProps> = ({
     level,
     expanded,
     onToggle,
-    onDoubleClick
+    onDoubleClick,
 }) => {
     const indentation = level * 24;
     const [dragOver, setDragOver] = useState(false);
@@ -285,6 +288,11 @@ const FileItem: React.FC<FileItemProps> = ({
     const isEditable = () => {
         const extension = item.name.split('.').pop()?.toLowerCase() || '';
         return EDITABLE_EXTENSIONS.includes(extension);
+    };
+
+    const isImage = () => {
+        const extension = item.name.split('.').pop()?.toLowerCase() || '';
+        return PREVIEW_EXTENSIONS.includes(extension);
     };
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -316,7 +324,7 @@ const FileItem: React.FC<FileItemProps> = ({
     return (
         <>
             <tr
-                className={`border-b last:border-b-0 hover:bg-gray-100 transition-colors ${dragOver ? 'bg-blue-50' : ''}`}
+                className={`border-b last:border-b-0 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${dragOver ? 'bg-blue-50 dark:bg-blue-900' : ''}`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
@@ -325,34 +333,34 @@ const FileItem: React.FC<FileItemProps> = ({
                     {item.type === 'folder' ? (
                         <div className="flex items-center">
                             <button
-                                onClick={onToggle}
+                                onClick={() => onToggle(item.path)}
                                 className="mr-2 focus:outline-none"
                             >
-                                <span className="material-icons text-gray-500 text-sm transform transition-transform">
+                                <span className="material-icons text-gray-500 dark:text-gray-300 text-sm transform transition-transform">
                                     {expanded ? 'expand_more' : 'chevron_right'}
                                 </span>
                             </button>
                             <button
                                 onClick={() => onFolderClick(item.path)}
-                                className="flex items-center hover:text-blue-600"
+                                className="flex items-center hover:text-blue-600 dark:hover:text-blue-400"
                             >
-                                <span className="material-icons text-yellow-500">folder</span>
-                                <span className="ml-3 text-gray-800">{item.name}</span>
+                                <span className="material-icons text-yellow-500 dark:text-yellow-400">folder</span>
+                                <span className="ml-3 text-gray-800 dark:text-gray-200">{item.name}</span>
                             </button>
                         </div>
                     ) : (
                         <div
-                            className={`flex items-center ${isEditable() ? 'cursor-pointer hover:text-blue-600' : ''}`}
+                            className={`flex items-center ${isEditable() || isImage() ? 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400' : ''}`}
                             onDoubleClick={() => onDoubleClick(item)}
-                            title={isEditable() ? 'Doppio click per modificare' : undefined}
+                            title={isEditable() ? 'Doppio click per modificare' : isImage() ? 'Doppio click per visualizzare' : undefined}
                         >
                             <FileIcon filename={item.name} />
-                            <span className="ml-3 text-gray-800">{item.name}</span>
+                            <span className="ml-3 text-gray-800 dark:text-gray-200">{item.name}</span>
                         </div>
                     )}
                 </td>
-                <td className="p-2 text-gray-600">{item.size}</td>
-                <td className="p-2 text-gray-600">{formatDate(item.date)}</td>
+                <td className="p-2 text-gray-600 dark:text-gray-300">{item.size}</td>
+                <td className="p-2 text-gray-600 dark:text-gray-300">{formatDate(item.date)}</td>
                 <td className="p-2 text-center">
                     <div className="flex items-center justify-center space-x-2">
                         <button
@@ -366,7 +374,7 @@ const FileItem: React.FC<FileItemProps> = ({
                                     onRename(item.path, newPath);
                                 }
                             }}
-                            className="text-yellow-500 hover:text-yellow-700 hover:bg-yellow-50 rounded-full transition-colors"
+                            className="text-yellow-500 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 rounded-full transition-colors"
                             title={`Rinomina ${item.type === 'folder' ? 'cartella' : 'file'}`}
                         >
                             <RenameIcon className="w-5 h-5" />
@@ -395,7 +403,7 @@ const FileItem: React.FC<FileItemProps> = ({
                                         customToast.error('Errore durante il download');
                                     }
                                 }}
-                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-colors"
+                                className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-full transition-colors"
                                 title={item.type === 'folder' ? "Scarica cartella come ZIP" : "Scarica file"}
                             >
                                 <DownloadIcon className="w-5 h-5" />
@@ -403,7 +411,7 @@ const FileItem: React.FC<FileItemProps> = ({
                         )}
                         <button
                             onClick={() => onDelete(item.path)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors"
+                            className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors"
                             title={`Elimina ${item.type === 'folder' ? 'cartella' : 'file'}`}
                         >
                             <TrashIcon className="w-5 h-5" />
@@ -428,9 +436,10 @@ const FileItemWithExpand: React.FC<FileItemProps> = (props) => {
                     onFolderClick={props.onFolderClick}
                     onUpload={props.onUpload}
                     level={props.level + 1}
-                    expanded={Boolean(props.expanded && props.item.children?.some(c => c.path === child.path))}
-                    onToggle={() => props.onToggle()}
+                    expanded={props.isPathExpanded(child.path)}
+                    onToggle={props.onToggle}
                     onDoubleClick={props.onDoubleClick}
+                    isPathExpanded={props.isPathExpanded}
                 />
             ))}
         </>
@@ -446,6 +455,8 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
     const [selectedTextFile, setSelectedTextFile] = useState<string | null>(null);
     const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
     const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [previewType, setPreviewType] = useState<string>('');
     const createMenuRef = useRef<HTMLDivElement>(null);
     const createButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -602,10 +613,10 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
         setExpandedPaths(prev => {
             const newSet = new Set(prev);
             if (newSet.has(path)) {
-                // Quando chiudiamo una cartella, rimuoviamo solo quella cartella
+                // Quando chiudiamo una cartella, rimuoviamo solo il suo path specifico
                 newSet.delete(path);
             } else {
-                // Quando espandiamo una cartella, aggiungiamo solo quella cartella
+                // Quando espandiamo una cartella, aggiungiamo il suo path
                 newSet.add(path);
             }
             return newSet;
@@ -682,13 +693,31 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
 
     const handleFileDoubleClick = async (item: FileData) => {
         const extension = item.name.split('.').pop()?.toLowerCase() || '';
-        if (EDITABLE_EXTENSIONS.includes(extension)) {
+        
+        if (PREVIEW_EXTENSIONS.includes(extension)) {
             try {
                 const response = await fileService.downloadFile(item.path);
-                let content = '';
-
-                // Per i file di testo, usa direttamente il contenuto della risposta
-                content = response.data;
+                const blob = new Blob([response.data], { 
+                    type: extension === 'svg' 
+                        ? 'image/svg+xml' 
+                        : extension === 'pdf'
+                        ? 'application/pdf'
+                        : `image/${extension}` 
+                });
+                
+                const url = window.URL.createObjectURL(blob);
+                setPreviewType(extension);
+                setImagePreview(url);
+            } catch (error: any) {
+                console.error('Error loading file:', error);
+                customToast.error('Errore nel caricamento del file');
+            }
+        } else if (EDITABLE_EXTENSIONS.includes(extension)) {
+            try {
+                const response = await fileService.downloadFile(item.path);
+                // Per i file di testo, converti l'arraybuffer in stringa
+                const decoder = new TextDecoder('utf-8');
+                const content = decoder.decode(response.data);
 
                 // Navigate to editor page with content and file path
                 navigate('/editor', {
@@ -701,6 +730,15 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                 console.error('Error loading file:', error);
                 customToast.error('Errore nel caricamento del file');
             }
+        }
+    };
+
+    // Funzione per chiudere il preview
+    const handleCloseImagePreview = () => {
+        if (imagePreview) {
+            window.URL.revokeObjectURL(imagePreview);
+            setImagePreview(null);
+            setPreviewType('');
         }
     };
 
@@ -754,11 +792,39 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
 
     return (
         <div className="flex flex-col min-h-screen">
+            {/* Preview Modal */}
+            {imagePreview && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
+                    <button
+                        onClick={handleCloseImagePreview}
+                        className="fixed top-4 right-4 w-10 h-10 flex items-center justify-center bg-white dark:bg-gray-800 rounded-full text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none shadow-lg z-[60]"
+                    >
+                        <span className="material-icons">close</span>
+                    </button>
+                    <div className="relative w-[95%] h-[95%] flex items-center justify-center">
+                        {previewType === 'pdf' ? (
+                            <iframe
+                                src={imagePreview}
+                                title="PDF Preview"
+                                className="w-full h-full rounded-lg bg-white dark:bg-gray-800"
+                                style={{ minHeight: '95vh' }}
+                            />
+                        ) : (
+                            <img
+                                src={imagePreview}
+                                alt="Preview"
+                                className="max-w-full max-h-[95vh] object-contain rounded-lg"
+                            />
+                        )}
+                    </div>
+                </div>
+            )}
+            
             <div className="flex-1 overflow-auto">
-                <div className="max-w-4xl mx-auto p-6 mt-6 bg-white shadow-xl rounded-xl mb-6">
+                <div className="max-w-4xl mx-auto p-6 mt-6 bg-white dark:bg-gray-800 shadow-xl rounded-xl mb-6">
                     <div className="flex justify-between items-center mb-6">
                         <div className="flex-1"></div>
-                        <h1 className="text-3xl font-bold text-center flex-1" style={{ color: '#209CEE' }}>FlowFiles</h1>
+                        <h1 className="text-3xl font-bold text-center flex-1 text-blue-500">FlowFiles</h1>
                         <div className="flex-1"></div>
                     </div>
 
@@ -772,7 +838,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                     {selectedTextFile !== null ? (
                         <div className="mt-4">
                             <div className="flex justify-between items-center mb-2">
-                                <h2 className="text-lg font-semibold">
+                                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
                                     Editing: {selectedFilePath}
                                 </h2>
                                 <div className="space-x-2">
@@ -798,7 +864,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                         <div className="mt-6">
                             <div className="flex justify-between items-center mb-2">
                                 <div className="flex-1"></div>
-                                <h2 className="text-2xl font-semibold text-gray-700 flex-1 text-center">File Caricati</h2>
+                                <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-200 flex-1 text-center">File Caricati</h2>
                                 <div className="flex-1 text-right">
                                 </div>
                             </div>
@@ -809,19 +875,19 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                     <button
                                         ref={createButtonRef}
                                         onClick={toggleCreateMenu}
-                                        className="flex items-center px-3 py-2 text-gray-700 hover:bg-blue-50 rounded-lg transition-colors"
+                                        className="flex items-center px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
                                     >
                                         <span className="material-icons mr-2">add</span>
                                         Nuovo
                                     </button>
                                     {isCreateMenuOpen && (
-                                        <div ref={createMenuRef} className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-xl z-10">
+                                        <div ref={createMenuRef} className="absolute left-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-xl z-10">
                                             <button
                                                 onClick={() => {
                                                     handleCreateFolder();
                                                     toggleCreateMenu();
                                                 }}
-                                                className="flex items-center w-full text-left px-4 py-2 text-sm hover:bg-blue-50"
+                                                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900"
                                             >
                                                 <span className="material-icons mr-2">create_new_folder</span>
                                                 Nuova cartella
@@ -831,7 +897,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                                     handleCreateFile();
                                                     toggleCreateMenu();
                                                 }}
-                                                className="flex items-center w-full text-left px-4 py-2 text-sm hover:bg-blue-50"
+                                                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900"
                                             >
                                                 <span className="material-icons mr-2">note_add</span>
                                                 Nuovo file
@@ -844,30 +910,29 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                         setCurrentPath('/');
                                         handleFolderClick('/');
                                     }}
-                                    className="flex items-center px-3 py-2 text-gray-700 hover:bg-blue-50 rounded-lg transition-colors"
+                                    className="flex items-center px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
                                 >
                                     <span className="material-icons mr-2">home</span>
                                     Home Directory
                                 </button>
 
-
-                                <div className="flex-1 px-2 py-1 bg-gray-50 rounded-lg text-gray-600 flex items-center">
+                                <div className="flex-1 px-2 py-1 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300 flex items-center">
                                     <span className="material-icons mr-2">folder_open</span>
                                     Percorso corrente: {currentPath === '/' ? 'Home Directory' : currentPath}
                                 </div>
                             </div>
 
-                            <div className="bg-gray-50 rounded-lg overflow-hidden shadow">
+                            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg overflow-hidden shadow">
                                 <table className="w-full table-auto">
-                                    <thead className="bg-gray-100">
+                                    <thead className="bg-gray-100 dark:bg-gray-800">
                                         <tr>
-                                            <th className="p-2 text-left text-gray-600">Nome</th>
-                                            <th className="p-2 text-left text-gray-600">Dimensione</th>
-                                            <th className="p-2 text-left text-gray-600">Data</th>
-                                            <th className="p-3 text-center text-gray-600">Azioni</th>
+                                            <th className="p-2 text-left text-gray-600 dark:text-gray-300">Nome</th>
+                                            <th className="p-2 text-left text-gray-600 dark:text-gray-300">Dimensione</th>
+                                            <th className="p-2 text-left text-gray-600 dark:text-gray-300">Data</th>
+                                            <th className="p-3 text-center text-gray-600 dark:text-gray-300">Azioni</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
                                         {files.map((item, index) => (
                                             <FileItemWithExpand
                                                 key={item.path + index}
@@ -878,14 +943,15 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                                 onUpload={handleFileUpload}
                                                 level={0}
                                                 expanded={isPathExpanded(item.path)}
-                                                onToggle={() => handleTogglePath(item.path)}
+                                                onToggle={(path) => handleTogglePath(path)}
                                                 onDoubleClick={handleFileDoubleClick}
+                                                isPathExpanded={isPathExpanded}
                                             />
                                         ))}
                                     </tbody>
                                 </table>
                                 {files.length === 0 && (
-                                    <div className="text-center py-8 text-gray-500">
+                                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                                         Nessun file caricato
                                     </div>
                                 )}
@@ -894,9 +960,9 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                     )}
                 </div>
             </div>
-            <footer className="text-center py-4 bg-gray-100">
-                <p className="text-gray-500">© {new Date().getFullYear()} Alessio Abrugiati | Powered by Caffeine and Code</p>
-                <a className="justify-center text-gray-500" rel="stylesheet" href="https://www.alexis82.it" target="_blank">www.alexis82.it</a>
+            <footer className="text-center py-4 bg-gray-100 dark:bg-gray-900">
+                <p className="text-gray-500 dark:text-gray-400">© {new Date().getFullYear()} Alessio Abrugiati | Powered by Caffeine and Code</p>
+                <a className="justify-center text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400" rel="stylesheet" href="https://www.alexis82.it" target="_blank">www.alexis82.it</a>
             </footer>
         </div>
     );

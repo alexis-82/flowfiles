@@ -29,7 +29,7 @@
   },
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/bin/www/server.ts | pino-pretty",
-    "build": "rimraf dist && tsup --format esm && mkdir -p dist/bin/config && cp -R src/config/* dist/bin/config/",
+    "build": "rimraf dist && tsup --format esm",
     "start": "node dist/bin/www/server.mjs",
     "clean": "rimraf dist",
     "lint:check": "eslint .",

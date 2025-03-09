@@ -1,8 +1,9 @@
-import express, {Request, Response} from 'express'
+import express, {Request, Response} from 'express';
 import cors from 'cors';
 import fileRoutes from './routes/fileRoutes';
 import settingsRoutes from './routes/settingsRoutes';
-import { generateServerInfoHtml } from './utils/htmlGenerator'
+import updateRoutes from './routes/updateRoutes';
+import { generateServerInfoHtml } from './utils/htmlGenerator';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { requestLogger } from './middleware/requestLogger';
@@ -27,6 +28,7 @@ const __dirname = dirname(__filename);
 
 app.use('/api/files', fileRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/update', updateRoutes); // Aggiungi le rotte per l'aggiornamento
 app.use(express.static(join(__dirname, 'public')));
 
 const publicPath = join(__dirname, "..", "..", 'public');
@@ -43,9 +45,9 @@ app.use(express.static(publicPath, {
 app.use(requestLogger);
 
 app.get('/', (_req: Request, res: Response) => {
-    const {html} = generateServerInfoHtml()
-    res.send(html)
-})
+    const {html} = generateServerInfoHtml();
+    res.send(html);
+});
 
 app.use('/downloads', express.static(path.join(__dirname, '../downloads')));
 
