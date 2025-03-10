@@ -216,4 +216,4 @@ This project is licensed under the terms of the included license file.
 
 ## Screenshot
 
-[![Screenshot-from-2025-01-07-18-45-30.png](https://i.postimg.cc/nrR4rqrq/Screenshot-from-2025-01-07-18-45-30.png)](https://postimg.cc/ct3g5gQJ)
+[![Screenshot-from-2025-01-07-18-45-30.png](https://i.postimg.cc/nrR4rqrq/Screenshot-from-2025-01-07-18-45-30.png)](https://i.postimg.cc/nrR4rqrq/Screenshot-from-2025-01-07-18-45-30.png)
