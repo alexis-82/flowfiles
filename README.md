@@ -93,7 +93,7 @@ Lo script:
 - Installa le dipendenze del frontend e del backend
 - Compila entrambe le applicazioni
 - Avvia il backend sulla porta 3000
-- Avvia il frontend sulla porta predefinita
+- Avvia il frontend sulla porta 8080
 - Gestisce automaticamente l'arresto dei servizi quando si termina lo script
 
 # Risolvere problema con WSL
@@ -199,7 +199,7 @@ The script will:
 - Install frontend and backend dependencies
 - Build both applications
 - Start the backend on port 3000
-- Start the frontend on the default port
+- Start the frontend on the port 8080
 - Automatically handle service shutdown when the script is terminated
   
 # Fix problem with WSL
