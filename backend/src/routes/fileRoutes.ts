@@ -6,6 +6,7 @@ import { calculateDirectorySize } from '../utils/fileUtils';
 import { fileController, renameFile } from '../controllers/fileController';
 import fs from 'fs';
 import logger from '../utils/logger';
+import { verifyVaultPassword, validateVaultToken } from '../middleware/vaultAuth';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -149,6 +150,45 @@ router.post('/log-error', async (req: express.Request, res: express.Response) =>
 
 router.post('/upload-folder', upload.single('zipFile'), async (req, res) => {
     await fileController.uploadFolder(req, res);
+});
+
+// Rotte per la cassaforte che non richiedono autenticazione
+router.post('/vault/set-password', async (req, res) => {
+    await fileController.setVaultPassword(req, res);
+});
+router.get('/vault/status', async (req, res) => {
+    await fileController.checkVaultStatus(req, res);
+});
+router.post('/vault/reset-password', async (req, res) => {
+    await fileController.resetVaultPassword(req, res);
+});
+
+// Rotta di autenticazione
+router.post('/vault/auth', async (req: express.Request, res: express.Response) => {
+    await verifyVaultPassword(req, res);
+});
+
+// Proteggi tutte le altre rotte della cassaforte con il middleware
+router.use('/vault', validateVaultToken);
+
+router.post('/vault/move', async (req, res) => {
+    await fileController.moveToVault(req, res);
+});
+
+router.get('/vault', async (req, res) => {
+    await fileController.getVaultFiles(req, res);
+});
+
+router.post('/vault/restore/:filename', async (req, res) => {
+    await fileController.restoreFromVault(req, res);
+});
+
+router.delete('/vault/:filename', async (req, res) => {
+    await fileController.deleteFromVault(req, res);
+});
+
+router.get('/vault/download/:filename', async (req, res) => {
+    await fileController.downloadVaultFile(req, res);
 });
 
 export default router;

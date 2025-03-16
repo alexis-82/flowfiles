@@ -45,7 +45,10 @@ const EDITABLE_EXTENSIONS = [
     'temp', 'Dockerfile', 'dockerignore', 'dockerfile', 'info'
 ];
 
-const PREVIEW_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'ico', 'svg', 'webp', 'pdf'];
+const PREVIEW_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'pdf'];
+
+const AUDIO_EXTENSIONS = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'wma'];
+const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogv', 'avi', 'mov', 'wmv'];
 
 const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFolderUpload, onStorageUpdate }) => {
     const [dragOver, setDragOver] = useState(false);
@@ -269,6 +272,9 @@ interface FileItemProps {
     onToggle: (path: string) => void;
     onDoubleClick: (item: FileData) => void;
     isPathExpanded: (path: string) => boolean;
+    isSelected: boolean;
+    onSelect: (path: string, selected: boolean) => void;
+    selectedFiles?: Set<string>;
 }
 
 const FileItem: React.FC<FileItemProps> = ({
@@ -281,6 +287,8 @@ const FileItem: React.FC<FileItemProps> = ({
     expanded,
     onToggle,
     onDoubleClick,
+    isSelected,
+    onSelect,
 }) => {
     const indentation = level * 24;
     const [dragOver, setDragOver] = useState(false);
@@ -293,6 +301,11 @@ const FileItem: React.FC<FileItemProps> = ({
     const isImage = () => {
         const extension = item.name.split('.').pop()?.toLowerCase() || '';
         return PREVIEW_EXTENSIONS.includes(extension);
+    };
+
+    const isMediaFile = () => {
+        const extension = item.name.split('.').pop()?.toLowerCase() || '';
+        return AUDIO_EXTENSIONS.includes(extension) || VIDEO_EXTENSIONS.includes(extension);
     };
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -330,11 +343,18 @@ const FileItem: React.FC<FileItemProps> = ({
                 onDrop={handleDrop}
             >
                 <td className="p-3 flex items-center" style={{ paddingLeft: `${indentation + 12}px` }}>
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => onSelect(item.path, e.target.checked)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mr-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
                     {item.type === 'folder' ? (
                         <div className="flex items-center">
                             <button
                                 onClick={() => onToggle(item.path)}
-                                className="mr-2 focus:outline-none"
+                                className="mr-2 focus:outline-none cursor-pointer"
                             >
                                 <span className="material-icons text-gray-500 dark:text-gray-300 text-sm transform transition-transform">
                                     {expanded ? 'expand_more' : 'chevron_right'}
@@ -342,7 +362,7 @@ const FileItem: React.FC<FileItemProps> = ({
                             </button>
                             <button
                                 onClick={() => onFolderClick(item.path)}
-                                className="flex items-center hover:text-blue-600 dark:hover:text-blue-400"
+                                className="flex items-center hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer"
                             >
                                 <span className="material-icons text-yellow-500 dark:text-yellow-400">folder</span>
                                 <span className="ml-3 text-gray-800 dark:text-gray-200">{item.name}</span>
@@ -350,9 +370,9 @@ const FileItem: React.FC<FileItemProps> = ({
                         </div>
                     ) : (
                         <div
-                            className={`flex items-center ${isEditable() || isImage() ? 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400' : ''}`}
+                            className={`flex items-center ${isEditable() || isImage() || isMediaFile() ? 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400' : ''}`}
                             onDoubleClick={() => onDoubleClick(item)}
-                            title={isEditable() ? 'Doppio click per modificare' : isImage() ? 'Doppio click per visualizzare' : undefined}
+                            title={isEditable() ? 'Doppio click per modificare' : isImage() ? 'Doppio click per visualizzare' : isMediaFile() ? 'Doppio click per riprodurre' : undefined}
                         >
                             <FileIcon filename={item.name} />
                             <span className="ml-3 text-gray-800 dark:text-gray-200">{item.name}</span>
@@ -395,7 +415,6 @@ const FileItem: React.FC<FileItemProps> = ({
                                             document.body.removeChild(link);
                                             window.URL.revokeObjectURL(url);
                                         } else {
-                                            // Per le cartelle, scarica direttamente come zip
                                             window.location.href = `http://localhost:3000/api/files/download/${item.path}`;
                                         }
                                     } catch (error) {
@@ -440,6 +459,9 @@ const FileItemWithExpand: React.FC<FileItemProps> = (props) => {
                     onToggle={props.onToggle}
                     onDoubleClick={props.onDoubleClick}
                     isPathExpanded={props.isPathExpanded}
+                    isSelected={props.selectedFiles?.has(child.path) || false}
+                    onSelect={props.onSelect}
+                    selectedFiles={props.selectedFiles}
                 />
             ))}
         </>
@@ -459,10 +481,11 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
     const [previewType, setPreviewType] = useState<string>('');
     const createMenuRef = useRef<HTMLDivElement>(null);
     const createButtonRef = useRef<HTMLButtonElement>(null);
+    const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
 
     const loadFiles = async (_currentPath?: string) => {
         try {
-            const fileList = await fileService.getAllFiles('/');
+            const fileList = await fileService.getAllFiles(_currentPath || '/');
             setFiles(fileList);
             
             // Mantieni le cartelle espanse dopo il ricaricamento
@@ -607,6 +630,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
 
     const handleFolderClick = async (path: string) => {
         setCurrentPath(path);
+        await loadFiles(path);
     };
 
     const handleTogglePath = (path: string) => {
@@ -640,7 +664,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
 
         if (folderName) {
             try {
-                await fileService.createFolder(folderName);
+                await fileService.createFolder(folderName, currentPath);
                 await loadFiles();
                 Swal.fire(
                     'Creata!',
@@ -674,7 +698,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
 
         if (fileName) {
             try {
-                await fileService.createFile(fileName);
+                await fileService.createFile(fileName, currentPath);
                 await loadFiles();
                 Swal.fire(
                     'Creato!',
@@ -711,6 +735,28 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
             } catch (error: any) {
                 console.error('Error loading file:', error);
                 customToast.error('Errore nel caricamento del file');
+            }
+        } else if (AUDIO_EXTENSIONS.includes(extension)) {
+            try {
+                const response = await fileService.downloadFile(item.path);
+                const blob = new Blob([response.data], { type: `audio/${extension}` });
+                const url = window.URL.createObjectURL(blob);
+                setPreviewType('audio');
+                setImagePreview(url);
+            } catch (error: any) {
+                console.error('Error loading audio file:', error);
+                customToast.error('Errore nel caricamento del file audio');
+            }
+        } else if (VIDEO_EXTENSIONS.includes(extension)) {
+            try {
+                const response = await fileService.downloadFile(item.path);
+                const blob = new Blob([response.data], { type: `video/${extension}` });
+                const url = window.URL.createObjectURL(blob);
+                setPreviewType('video');
+                setImagePreview(url);
+            } catch (error: any) {
+                console.error('Error loading video file:', error);
+                customToast.error('Errore nel caricamento del file video');
             }
         } else if (EDITABLE_EXTENSIONS.includes(extension)) {
             try {
@@ -786,6 +832,160 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
         };
     }, [isCreateMenuOpen]);
 
+    const handleSelect = (path: string, selected: boolean) => {
+        setSelectedFiles(prev => {
+            const newSet = new Set(prev);
+            if (selected) {
+                newSet.add(path);
+            } else {
+                newSet.delete(path);
+            }
+            return newSet;
+        });
+    };
+
+    const handleDeleteSelected = async () => {
+        const selectedPaths = Array.from(selectedFiles);
+        if (selectedPaths.length === 0) return;
+
+        const result = await Swal.fire({
+            title: 'Sei sicuro?',
+            text: `Stai per eliminare ${selectedPaths.length} elementi selezionati. Questa azione non può essere annullata!`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sì, elimina!',
+            cancelButtonText: 'Annulla'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                let hasErrors = false;
+                for (const path of selectedPaths) {
+                    try {
+                        // Codifica il percorso del file per gestire caratteri speciali
+                        const encodedPath = encodeURIComponent(path).replace(/%2F/g, '/');
+                        await fileService.deleteFile(encodedPath);
+                    } catch (error) {
+                        console.error(`Errore durante l'eliminazione di ${path}:`, error);
+                        hasErrors = true;
+                    }
+                }
+                
+                setSelectedFiles(new Set());
+                await loadFiles();
+                
+                if (hasErrors) {
+                    Swal.fire(
+                        'Attenzione!',
+                        'Alcuni elementi non sono stati eliminati correttamente.',
+                        'warning'
+                    );
+                } else {
+                    Swal.fire(
+                        'Eliminati!',
+                        'Gli elementi selezionati sono stati eliminati con successo.',
+                        'success'
+                    );
+                }
+                props.onStorageUpdate?.();
+            } catch (error) {
+                console.error('Errore durante l\'eliminazione:', error);
+                Swal.fire(
+                    'Errore!',
+                    'Si è verificato un errore durante l\'eliminazione.',
+                    'error'
+                );
+            }
+        }
+    };
+
+    const handleDownloadSelected = async () => {
+        const selectedPaths = Array.from(selectedFiles);
+        if (selectedPaths.length === 0) return;
+
+        try {
+            if (selectedPaths.length === 1) {
+                // Se è selezionato un solo elemento, usa la logica esistente
+                const path = selectedPaths[0];
+                const item = files.find(f => f.path === path) || 
+                           files.flatMap(f => f.children || []).find(f => f.path === path);
+                
+                if (!item) {
+                    customToast.error('Elemento non trovato');
+                    return;
+                }
+
+                if (item.type === 'file') {
+                    const response = await fileService.downloadFile(path);
+                    const blob = new Blob([response.data], { type: 'text/plain' });
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.setAttribute('download', item.name);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+                } else {
+                    const encodedPath = encodeURIComponent(path).replace(/%2F/g, '/');
+                    window.location.href = `http://localhost:3000/api/files/download/${encodedPath}`;
+                }
+            } else {
+                // Per più elementi, usa JSZip per creare un archivio ZIP lato client
+                const zip = new JSZip();
+                
+                // Aggiungi tutti i file selezionati al ZIP
+                for (const path of selectedPaths) {
+                    try {
+                        const response = await fileService.downloadFile(path);
+                        const fileName = path.split('/').pop() || path;
+                        zip.file(fileName, response.data);
+                    } catch (error) {
+                        console.error(`Errore durante il download di ${path}:`, error);
+                        customToast.error(`Errore durante il download di ${path}`);
+                    }
+                }
+
+                // Genera e scarica il file ZIP
+                const content = await zip.generateAsync({ 
+                    type: 'blob',
+                    compression: 'DEFLATE',
+                    compressionOptions: {
+                        level: 9
+                    }
+                });
+
+                const url = window.URL.createObjectURL(content);
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', 'selected_files.zip');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+            }
+            customToast.success('Download completato con successo');
+        } catch (error) {
+            console.error('Errore durante il download:', error);
+            customToast.error('Errore durante il download');
+        }
+    };
+
+    const handleMoveToVault = async () => {
+        try {
+            const files = Array.from(selectedFiles);
+            await Promise.all(files.map(file => fileService.moveToVault(file)));
+            toast.success(`${files.length} file spostati nella cassaforte`);
+            await loadFiles();
+            setSelectedFiles(new Set());
+        } catch (error) {
+            console.error('Errore durante lo spostamento nella cassaforte', error);
+            toast.error("Errore durante lo spostamento nella cassaforte, fare prima l'accesso");
+        }
+    };
+
     if (loading) {
         return <div className="text-center py-8">Caricamento...</div>;
     }
@@ -797,7 +997,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
                     <button
                         onClick={handleCloseImagePreview}
-                        className="fixed top-4 right-4 w-10 h-10 flex items-center justify-center bg-white dark:bg-gray-800 rounded-full text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none shadow-lg z-[60]"
+                        className="fixed top-4 right-4 w-10 h-10 flex items-center justify-center bg-white dark:bg-gray-800 rounded-full text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none shadow-lg z-[60] cursor-pointer"
                     >
                         <span className="material-icons">close</span>
                     </button>
@@ -809,6 +1009,30 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                 className="w-full h-full rounded-lg bg-white dark:bg-gray-800"
                                 style={{ minHeight: '95vh' }}
                             />
+                        ) : previewType === 'audio' ? (
+                            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">
+                                <audio
+                                    controls
+                                    autoPlay
+                                    className="w-full max-w-2xl"
+                                    controlsList="nodownload"
+                                >
+                                    <source src={imagePreview} type="audio/mpeg" />
+                                    Il tuo browser non supporta l'elemento audio.
+                                </audio>
+                            </div>
+                        ) : previewType === 'video' ? (
+                            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg">
+                                <video
+                                    controls
+                                    autoPlay
+                                    className="max-w-full max-h-[80vh]"
+                                    controlsList="nodownload"
+                                >
+                                    <source src={imagePreview} type="video/mp4" />
+                                    Il tuo browser non supporta l'elemento video.
+                                </video>
+                            </div>
                         ) : (
                             <img
                                 src={imagePreview}
@@ -844,7 +1068,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                 <div className="space-x-2">
                                     <button
                                         onClick={() => handleSaveContent(selectedTextFile)}
-                                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
                                     >
                                         Save
                                     </button>
@@ -853,7 +1077,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                             setSelectedTextFile(null);
                                             setSelectedFilePath(null);
                                         }}
-                                        className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                                        className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 cursor-pointer"
                                     >
                                         Close
                                     </button>
@@ -875,10 +1099,10 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                     <button
                                         ref={createButtonRef}
                                         onClick={toggleCreateMenu}
-                                        className="flex items-center px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
+                                        className="flex items-center px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors cursor-pointer"
                                     >
-                                        <span className="material-icons mr-2">add</span>
-                                        Nuovo
+                                        <span className="material-icons mr-2">menu</span>
+                                        Menu
                                     </button>
                                     {isCreateMenuOpen && (
                                         <div ref={createMenuRef} className="absolute left-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-xl z-10">
@@ -887,7 +1111,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                                     handleCreateFolder();
                                                     toggleCreateMenu();
                                                 }}
-                                                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900"
+                                                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900 cursor-pointer"
                                             >
                                                 <span className="material-icons mr-2">create_new_folder</span>
                                                 Nuova cartella
@@ -897,11 +1121,46 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                                     handleCreateFile();
                                                     toggleCreateMenu();
                                                 }}
-                                                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900"
+                                                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900 cursor-pointer"
                                             >
                                                 <span className="material-icons mr-2">note_add</span>
                                                 Nuovo file
                                             </button>
+                                            {selectedFiles.size > 0 && (
+                                                <>
+                                                    <div className="border-t border-gray-200 dark:border-gray-600 my-1"></div>
+                                                    <button
+                                                        onClick={() => {
+                                                            handleDownloadSelected();
+                                                            toggleCreateMenu();
+                                                        }}
+                                                        className="flex items-center w-full text-left px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer"
+                                                    >
+                                                        <span className="material-icons mr-2">download</span>
+                                                        Scarica ({selectedFiles.size})
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            handleMoveToVault();
+                                                            toggleCreateMenu();
+                                                        }}
+                                                        className="flex items-center w-full text-left px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer"
+                                                    >
+                                                        <span className="material-icons mr-2">lock</span>
+                                                        Cassaforte ({selectedFiles.size})
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            handleDeleteSelected();
+                                                            toggleCreateMenu();
+                                                        }}
+                                                        className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 cursor-pointer"
+                                                    >
+                                                        <span className="material-icons mr-2">delete</span>
+                                                        Elimina ({selectedFiles.size})
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -910,7 +1169,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                         setCurrentPath('/');
                                         handleFolderClick('/');
                                     }}
-                                    className="flex items-center px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
+                                    className="flex items-center px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors cursor-pointer"
                                 >
                                     <span className="material-icons mr-2">home</span>
                                     Home Directory
@@ -946,6 +1205,9 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                                 onToggle={(path) => handleTogglePath(path)}
                                                 onDoubleClick={handleFileDoubleClick}
                                                 isPathExpanded={isPathExpanded}
+                                                isSelected={selectedFiles.has(item.path)}
+                                                onSelect={handleSelect}
+                                                selectedFiles={selectedFiles}
                                             />
                                         ))}
                                     </tbody>

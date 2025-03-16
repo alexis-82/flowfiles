@@ -1,6 +1,12 @@
-import { getConfigPath } from './utils/paths';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
-// Usa il path risolto dinamicamente
-const CONFIG_PATH = getConfigPath();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-export const config = require(CONFIG_PATH);
+export const config = {
+    port: process.env.PORT || 3000,
+    uploadDir: path.join(__dirname, '..', 'uploads'),
+    env: process.env.NODE_ENV || 'development'
+};

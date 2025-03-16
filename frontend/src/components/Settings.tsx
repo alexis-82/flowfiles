@@ -4,6 +4,8 @@ import { fileService } from '../services/fileService';
 import toast from 'react-hot-toast';
 import { ThemeContext } from '../App';
 import Swal from 'sweetalert2';
+import { sweetAlert } from '../utils/sweetAlert';
+import { VaultPasswordDialog } from './VaultPasswordDialog';
 
 interface SettingsProps {
     onSettingsUpdate: () => void;
@@ -20,7 +22,7 @@ interface GithubRelease {
     html_url: string;
 }
 
-const CURRENT_VERSION = 'v1.4.2';
+const CURRENT_VERSION = 'v1.4.3';
 
 export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
     const [config, setConfig] = useState<StorageConfig>({
@@ -31,9 +33,12 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
     const [isUpdating, setIsUpdating] = useState(false);
     const [updateAvailable, setUpdateAvailable] = useState(false);
     const { isDarkMode, toggleTheme } = useContext(ThemeContext);
+    const [showVaultPasswordDialog, setShowVaultPasswordDialog] = useState(false);
+    const [isVaultConfigured, setIsVaultConfigured] = useState(false);
 
     useEffect(() => {
         fetchCurrentConfig();
+        checkVaultStatus();
     }, []);
 
     const fetchCurrentConfig = async () => {
@@ -161,6 +166,15 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
         }
     };
 
+    const checkVaultStatus = async () => {
+        try {
+            const status = await fileService.checkVaultStatus();
+            setIsVaultConfigured(status.isConfigured);
+        } catch (error) {
+            console.error('Errore nel controllo dello stato della cassaforte:', error);
+        }
+    };
+
     return (
         <div className="flex flex-col min-h-screen">
             <div className="flex-1 overflow-auto">
@@ -259,7 +273,64 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
                         </form>
                     </div>
 
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 shadow mt-8">
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 shadow mt-6">
+                        <div className="mb-6">
+                            <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-200 text-center mb-4">
+                                Impostazioni Cassaforte
+                            </h2>
+                            <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
+                                Gestisci la password della cassaforte per proteggere i tuoi file sensibili.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col items-center space-y-4">
+                            <div className="text-center">
+                                <span className="material-icons text-4xl text-blue-500 mb-2">
+                                    {isVaultConfigured ? 'lock' : 'lock_open'}
+                                </span>
+                                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                                    {isVaultConfigured 
+                                        ? 'La cassaforte è protetta da password' 
+                                        : 'La cassaforte non è ancora configurata'}
+                                </p>
+                            </div>
+
+                            <div className="flex space-x-4">
+                                <button
+                                    onClick={() => setShowVaultPasswordDialog(true)}
+                                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                                >
+                                    {isVaultConfigured ? 'Modifica Password' : 'Imposta Password'}
+                                </button>
+                                {isVaultConfigured && (
+                                    <button
+                                        onClick={async () => {
+                                            const confirmed = await sweetAlert.confirm(
+                                                'Reset Password',
+                                                'Sei sicuro di voler resettare la password della cassaforte? Questa azione non può essere annullata.',
+                                                'warning'
+                                            );
+                                            
+                                            if (confirmed) {
+                                                try {
+                                                    await fileService.resetVaultPassword();
+                                                    toast.success('Password resettata con successo');
+                                                    checkVaultStatus();
+                                                } catch (error) {
+                                                    toast.error('Errore durante il reset della password');
+                                                }
+                                            }
+                                        }}
+                                        className="px-4 py-2 text-red-600 border border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                    >
+                                        Reset Password
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 shadow mt-6">
                         <div className="mb-6">
                             <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-200 text-center mb-4">Aggiornamento</h2>
                             <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
@@ -298,6 +369,15 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
                     </div>
                 </div>
             </div>
+
+            <VaultPasswordDialog
+                isOpen={showVaultPasswordDialog}
+                onClose={() => setShowVaultPasswordDialog(false)}
+                onSuccess={() => {
+                    checkVaultStatus();
+                    setShowVaultPasswordDialog(false);
+                }}
+            />
         </div>
     );
 }; 

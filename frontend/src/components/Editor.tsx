@@ -7,6 +7,8 @@ import toast from 'react-hot-toast';
 interface LocationState {
     content: string;
     filePath: string;
+    isVaultFile?: boolean;
+    returnToVault?: boolean;
 }
 
 // Configurazione dei font con i loro stili
@@ -21,6 +23,7 @@ const Editor: React.FC = () => {
     const navigate = useNavigate();
     const [content, setContent] = useState('');
     const [filePath, setFilePath] = useState('');
+    const [isVaultFile, setIsVaultFile] = useState(false);
     // const { isDarkMode } = useContext(ThemeContext);
 
     useEffect(() => {
@@ -28,6 +31,7 @@ const Editor: React.FC = () => {
         if (state?.content !== undefined && state?.filePath) {
             setContent(state.content);
             setFilePath(state.filePath);
+            setIsVaultFile(state.isVaultFile || false);
         } else {
             navigate('/');
             toast.error('Nessun file da modificare');
@@ -55,6 +59,19 @@ const Editor: React.FC = () => {
         }
     };
 
+    const handleClose = () => {
+        if (isVaultFile) {
+            // Torna alla home con l'indicazione di mostrare la vista vault
+            navigate('/', { 
+                state: { 
+                    returnToVault: true 
+                }
+            });
+        } else {
+            navigate('/');
+        }
+    };
+
     return (
         <div className="flex flex-col h-screen overflow-hidden">
             <div className="flex flex-1 overflow-hidden">
@@ -75,7 +92,7 @@ const Editor: React.FC = () => {
                                                 Salva
                                             </button>
                                             <button
-                                                onClick={() => navigate('/')}
+                                                onClick={handleClose}
                                                 className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 transition-colors"
                                             >
                                                 Chiudi

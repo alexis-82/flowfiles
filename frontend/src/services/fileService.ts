@@ -56,9 +56,12 @@ export const fileService = {
     return response.data;
   },
 
-  createFolder: async (folderName: string) => {
+  createFolder: async (folderName: string, path: string = '/') => {
     try {
-      const response = await axios.post(`${API_URL}/folder`, { name: folderName });
+      const response = await axios.post(`${API_URL}/folder`, { 
+        name: folderName,
+        path: path 
+      });
       return response.data;
     } catch (error) {
       console.error('Errore durante la creazione della cartella:', error);
@@ -142,9 +145,12 @@ export const fileService = {
     }
   },
 
-  createFile: async (filename: string) => {
+  createFile: async (filename: string, path: string = '/') => {
     try {
-      const response = await axios.post(`${API_URL}/create`, { name: filename });
+      const response = await axios.post(`${API_URL}/create`, { 
+        name: filename,
+        path: path 
+      });
       return response.data;
     } catch (error) {
       console.error('Errore durante la creazione del file:', error);
@@ -165,6 +171,107 @@ export const fileService = {
     return response.data;
   },
 
+  async moveToVault(filepath: string) {
+    try {
+      const token = localStorage.getItem('vaultToken');
+      const response = await axios.post(`${API_URL}/vault/move`, 
+        { path: filepath },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Errore durante lo spostamento nella cassaforte:', error);
+      throw error;
+    }
+  },
+
+  async getVaultFiles() {
+    try {
+      const token = localStorage.getItem('vaultToken');
+      const response = await axios.get(`${API_URL}/vault`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error getting vault files:', error);
+      throw error;
+    }
+  },
+
+  async authenticateVault(password: string) {
+    try {
+      const response = await axios.post(`${API_URL}/vault/auth`, { password });
+      const { token } = response.data;
+      localStorage.setItem('vaultToken', token);
+      return true;
+    } catch (error) {
+      console.error('Error authenticating vault:', error);
+      throw error;
+    }
+  },
+
+  async restoreFromVault(filename: string) {
+    try {
+      const token = localStorage.getItem('vaultToken');
+      const response = await axios.post(
+        `${API_URL}/vault/restore/${encodeURIComponent(filename)}`,
+        {},
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error restoring file from vault:', error);
+      throw error;
+    }
+  },
+
+  async deleteFromVault(filename: string) {
+    try {
+      const token = localStorage.getItem('vaultToken');
+      const response = await axios.delete(
+        `${API_URL}/vault/${encodeURIComponent(filename)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting file from vault:', error);
+      throw error;
+    }
+  },
+
+  async downloadVaultFile(filepath: string) {
+    try {
+      const token = localStorage.getItem('vaultToken');
+      const response = await axios.get(
+        `${API_URL}/vault/download/${encodeURIComponent(filepath)}`,
+        {
+          responseType: 'arraybuffer',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      return response;
+    } catch (error) {
+      console.error('Errore durante il download del file dalla cassaforte:', error);
+      throw error;
+    }
+  },
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   logError: async (message: string, details?: any) => {
     try {
@@ -175,5 +282,25 @@ export const fileService = {
     } catch (error) {
       console.error('Error logging to server:', error);
     }
+  },
+
+  setVaultPassword: async (currentPassword: string | null, newPassword: string) => {
+    const response = await axios.post(`${API_URL}/vault/set-password`, {
+      currentPassword,
+      newPassword
+    });
+    return response.data;
+  },
+
+  checkVaultStatus: async () => {
+    const response = await axios.get(`${API_URL}/vault/status`);
+    return response.data;
+  },
+
+  resetVaultPassword: async () => {
+    const response = await axios.post(`${API_URL}/vault/reset-password`);
+    // Rimuovi il token dalla localStorage dopo il reset
+    localStorage.removeItem('vaultToken');
+    return response.data;
   }
 };

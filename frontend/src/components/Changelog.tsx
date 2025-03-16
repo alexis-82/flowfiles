@@ -8,6 +8,20 @@ interface ChangelogEntry {
 
 const changelogData: ChangelogEntry[] = [
     {
+        version: "1.4.3",
+        date: "16-03-2025",
+        changes: [
+            "Implementato selezione multipla di file e cartelle",
+            "Aggiunta la funzionalità di scaricare i file selezionati",
+            "Aggiunta la funzionalità di eliminare i file selezionati",
+            "Implementato sezione Cassaforte",
+            "Aggiunta la funzionalità di spostare i file selezionati nella cassaforte",
+            "Implementato JWT per la protezione",
+            "Aggiunto il supporto di visualizzazione dei file video",
+            "Aggiunto il supporto per l'ascolto di file audio",
+        ]
+    },
+    {
         version: "1.4.2",
         date: "09-03-2025",
         changes: [

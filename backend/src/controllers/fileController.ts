@@ -5,19 +5,34 @@ import { fileURLToPath } from 'url';
 import logger from '../utils/logger';
 import archiver from 'archiver';
 import AdmZip from 'adm-zip';
+import bcrypt from 'bcrypt';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const UPLOAD_DIR = path.join(__dirname, '../../uploads');
 const TRASH_DIR = path.join(UPLOAD_DIR, '.trash');
+const VAULT_DIR = path.join(UPLOAD_DIR, '.vault');
 
-// Assicurati che la directory uploads e trash esistano
+// Assicurati che la directory uploads, trash e vault esistano
 if (!fs.existsSync(UPLOAD_DIR)) {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 if (!fs.existsSync(TRASH_DIR)) {
     fs.mkdirSync(TRASH_DIR, { recursive: true });
+}
+if (!fs.existsSync(VAULT_DIR)) {
+    fs.mkdirSync(VAULT_DIR, { recursive: true });
+}
+
+const VAULT_CONFIG_PATH = path.join(VAULT_DIR, '.vault-config.json');
+
+// Inizializza il file di configurazione della vault se non esiste
+if (!fs.existsSync(VAULT_CONFIG_PATH)) {
+    fs.writeFileSync(VAULT_CONFIG_PATH, JSON.stringify({ 
+        passwordHash: null,
+        created: new Date().toISOString()
+    }));
 }
 
 const sanitizePath = (userPath: string): string => {
@@ -26,9 +41,21 @@ const sanitizePath = (userPath: string): string => {
     return normalizedPath.startsWith('/') ? normalizedPath.slice(1) : normalizedPath;
 };
 
-const getFilesRecursively = (dir: string, basePath: string = ''): any[] => {
+const getFilesRecursively = (dir: string, basePath: string = '', filterSpecialDirs: boolean = true): any[] => {
     const items = fs.readdirSync(dir)
-        .filter(filename => filename !== '.gitkeep' && filename !== '.trash')
+        .filter(filename => {
+            // Filtra sempre i file e directory speciali
+            if (filterSpecialDirs && (filename === '.gitkeep' || filename === '.trash' || filename === '.vault')) {
+                return false;
+            }
+            
+            // Se siamo nella directory .vault, nascondi anche .vault-config.json
+            if (path.basename(dir) === '.vault' && filename === '.vault-config.json') {
+                return false;
+            }
+            
+            return true;
+        })
         .map(filename => {
             const fullPath = path.join(dir, filename);
             const relativePath = path.join(basePath, filename);
@@ -46,7 +73,7 @@ const getFilesRecursively = (dir: string, basePath: string = ''): any[] => {
             };
 
             if (isDirectory) {
-                const children = getFilesRecursively(fullPath, relativePath);
+                const children = getFilesRecursively(fullPath, relativePath, filterSpecialDirs);
                 if (children.length > 0) {
                     (item as any).children = children;
                 }
@@ -70,7 +97,9 @@ const calculateDirectorySize = (dir: string): number => {
     const items = fs.readdirSync(dir);
 
     for (const item of items) {
-        if (item === '.gitkeep') continue;
+        // Ignora i file e le directory speciali
+        if (item === '.gitkeep' || item === '.trash' || item === '.vault') continue;
+        
         const fullPath = path.join(dir, item);
         const stats = fs.statSync(fullPath);
 
@@ -108,6 +137,31 @@ export const renameFile = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Errore durante la rinomina:', error);
         res.status(500).json({ error: 'Errore durante la rinomina' });
+    }
+};
+
+export const createFolder = async (req: Request, res: Response) => {
+    try {
+        const { name, path: folderPath = '/' } = req.body;
+        if (!name) {
+            return res.status(400).json({ error: 'Nome cartella richiesto' });
+        }
+
+        const sanitizedPath = sanitizePath(folderPath);
+        const sanitizedName = sanitizePath(name);
+        const fullPath = path.join(UPLOAD_DIR, sanitizedPath, sanitizedName);
+
+        if (fs.existsSync(fullPath)) {
+            return res.status(400).json({ error: 'La cartella esiste già' });
+        }
+
+        fs.mkdirSync(fullPath, { recursive: true });
+        logger.info(`Cartella creata: ${fullPath}`);
+        
+        res.json({ message: 'Cartella creata con successo', path: path.join(sanitizedPath, sanitizedName).replace(/\\/g, '/') });
+    } catch (error) {
+        logger.error('Errore durante la creazione della cartella:', error);
+        res.status(500).json({ error: 'Errore durante la creazione della cartella' });
     }
 };
 
@@ -219,63 +273,34 @@ export const fileController = {
         }
     },
 
-    createFolder: async (req: Request, res: Response) => {
-        try {
-            const { name } = req.body;
-            
-            if (!name) {
-                return res.status(400).json({ error: 'Nome cartella non specificato' });
-            }
-
-            const folderPath = path.join(UPLOAD_DIR, sanitizePath(name));
-
-            if (fs.existsSync(folderPath)) {
-                return res.status(409).json({ error: 'Esiste già una cartella con questo nome' });
-            }
-
-            fs.mkdirSync(folderPath, { recursive: true });
-
-            const stats = fs.statSync(folderPath);
-            const folderInfo = {
-                name: path.basename(name),
-                size: '-',
-                date: stats.mtime.toISOString().split('T')[0],
-                type: 'folder',
-                path: name.replace(/\\/g, '/'),
-                children: []
-            };
-
-            res.status(200).json(folderInfo);
-        } catch (error) {
-            console.error('Errore durante la creazione della cartella:', error);
-            res.status(500).json({ error: 'Errore durante la creazione della cartella' });
-        }
-    },
+    createFolder: createFolder,
 
     createFile: async (req: Request, res: Response) => {
         try {
-            const { name } = req.body;
+            const { name, path: filePath = '/' } = req.body;
             
             if (!name) {
                 return res.status(400).json({ error: 'Nome file non specificato' });
             }
 
-            const filePath = path.join(UPLOAD_DIR, sanitizePath(name));
+            const sanitizedPath = sanitizePath(filePath);
+            const sanitizedName = sanitizePath(name);
+            const fullPath = path.join(UPLOAD_DIR, sanitizedPath, sanitizedName);
 
-            if (fs.existsSync(filePath)) {
+            if (fs.existsSync(fullPath)) {
                 return res.status(409).json({ error: 'Esiste già un file con questo nome' });
             }
 
             // Create an empty file
-            await fs.promises.writeFile(filePath, '', 'utf8');
+            await fs.promises.writeFile(fullPath, '', 'utf8');
 
-            const stats = fs.statSync(filePath);
+            const stats = fs.statSync(fullPath);
             const fileInfo = {
                 name: path.basename(name),
                 size: '0 KB',
                 date: stats.mtime.toISOString().split('T')[0],
                 type: 'file' as const,
-                path: name.replace(/\\/g, '/')
+                path: path.join(sanitizedPath, sanitizedName).replace(/\\/g, '/')
             };
 
             res.status(200).json(fileInfo);
@@ -290,7 +315,9 @@ export const fileController = {
     deleteAllFiles: async (req: Request, res: Response) => {
         try {
             const items = fs.readdirSync(UPLOAD_DIR)
-                .filter(filename => filename !== '.gitkeep' && filename !== '.trash');
+                .filter(filename => filename !== '.gitkeep' && 
+                                  filename !== '.trash' && 
+                                  filename !== '.vault');
                 
             for (const item of items) {
                 const itemPath = path.join(UPLOAD_DIR, item);
@@ -550,6 +577,262 @@ export const fileController = {
                 error: 'Errore durante il caricamento della cartella',
                 details: error instanceof Error ? error.message : 'Unknown error',
                 filename: req.file?.originalname
+            });
+        }
+    },
+
+    moveToVault: async (req: Request, res: Response) => {
+        try {
+            const { path: filepath } = req.body;
+            if (!filepath) {
+                return res.status(400).json({ error: 'Percorso file non specificato' });
+            }
+
+            const sourcePath = path.join(UPLOAD_DIR, sanitizePath(filepath));
+            const vaultPath = path.join(VAULT_DIR, path.basename(filepath));
+
+            if (!fs.existsSync(sourcePath)) {
+                return res.status(404).json({ error: 'File o cartella non trovato' });
+            }
+
+            // Se il file/cartella esiste già nella cassaforte, aggiungi un suffisso numerico
+            let finalVaultPath = vaultPath;
+            let counter = 1;
+            while (fs.existsSync(finalVaultPath)) {
+                const ext = path.extname(vaultPath);
+                const nameWithoutExt = path.basename(vaultPath, ext);
+                finalVaultPath = path.join(VAULT_DIR, `${nameWithoutExt}_${counter}${ext}`);
+                counter++;
+            }
+
+            const stats = fs.statSync(sourcePath);
+            const isDirectory = stats.isDirectory();
+
+            if (isDirectory) {
+                // Se è una directory, copiamo ricorsivamente tutti i contenuti
+                await fs.promises.mkdir(finalVaultPath, { recursive: true });
+                const copyRecursive = async (src: string, dest: string) => {
+                    const entries = await fs.promises.readdir(src, { withFileTypes: true });
+                    for (const entry of entries) {
+                        const srcPath = path.join(src, entry.name);
+                        const destPath = path.join(dest, entry.name);
+                        if (entry.isDirectory()) {
+                            await fs.promises.mkdir(destPath, { recursive: true });
+                            await copyRecursive(srcPath, destPath);
+                        } else {
+                            await fs.promises.copyFile(srcPath, destPath);
+                        }
+                    }
+                };
+                await copyRecursive(sourcePath, finalVaultPath);
+                // Dopo aver copiato tutto, eliminiamo la directory originale
+                await fs.promises.rm(sourcePath, { recursive: true });
+            } else {
+                // Se è un file, lo spostiamo semplicemente
+                await fs.promises.rename(sourcePath, finalVaultPath);
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: isDirectory ? 'Directory moved to vault' : 'File moved to vault',
+                shouldNavigateHome: isDirectory
+            });
+        } catch (error) {
+            logger.error('Error moving to vault:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Error moving file to vault',
+                error: (error as Error).message
+            });
+        }
+    },
+
+    getVaultFiles: async (_req: Request, res: Response) => {
+        try {
+            const items = getFilesRecursively(VAULT_DIR, '', false);
+            res.status(200).json(items);
+        } catch (error) {
+            res.status(500).json({ error: 'Errore durante il recupero dei file dalla cassaforte' });
+        }
+    },
+
+    restoreFromVault: async (req: Request, res: Response) => {
+        try {
+            const filename = req.params.filename;
+            const vaultPath = path.join(VAULT_DIR, filename);
+            const restorePath = path.join(UPLOAD_DIR, filename);
+
+            if (!fs.existsSync(vaultPath)) {
+                return res.status(404).json({ error: 'File non trovato nella cassaforte' });
+            }
+
+            // Se esiste già un file con lo stesso nome nella destinazione
+            let finalRestorePath = restorePath;
+            let counter = 1;
+            while (fs.existsSync(finalRestorePath)) {
+                const ext = path.extname(restorePath);
+                const nameWithoutExt = path.basename(restorePath, ext);
+                finalRestorePath = path.join(UPLOAD_DIR, `${nameWithoutExt}_${counter}${ext}`);
+                counter++;
+            }
+
+            await fs.promises.rename(vaultPath, finalRestorePath);
+            res.status(200).json({ 
+                success: true, 
+                message: 'File restored successfully' 
+            });
+        } catch (error) {
+            res.status(500).json({ 
+                success: false, 
+                message: 'Error restoring file',
+                error: (error as Error).message 
+            });
+        }
+    },
+
+    deleteFromVault: async (req: Request, res: Response) => {
+        try {
+            const filename = req.params.filename;
+            const vaultPath = path.join(VAULT_DIR, filename);
+
+            if (!fs.existsSync(vaultPath)) {
+                return res.status(404).json({ error: 'File non trovato nella cassaforte' });
+            }
+
+            const stats = fs.statSync(vaultPath);
+            if (stats.isDirectory()) {
+                await fs.promises.rm(vaultPath, { recursive: true });
+            } else {
+                await fs.promises.unlink(vaultPath);
+            }
+
+            res.status(200).json({ 
+                success: true, 
+                message: 'File permanently deleted' 
+            });
+        } catch (error) {
+            res.status(500).json({ 
+                success: false, 
+                message: 'Error deleting file',
+                error: (error as Error).message 
+            });
+        }
+    },
+
+    downloadVaultFile: async (req: Request, res: Response) => {
+        try {
+            const filename = req.params.filename;
+            const vaultPath = path.join(VAULT_DIR, filename);
+
+            if (!fs.existsSync(vaultPath)) {
+                return res.status(404).json({ error: 'File non trovato nella cassaforte' });
+            }
+
+            const stats = fs.statSync(vaultPath);
+            if (stats.isDirectory()) {
+                return res.status(400).json({ error: 'Non è possibile scaricare una cartella' });
+            }
+
+            res.download(vaultPath);
+        } catch (error) {
+            res.status(500).json({ 
+                success: false, 
+                message: 'Error downloading file',
+                error: (error as Error).message 
+            });
+        }
+    },
+
+    setVaultPassword: async (req: Request, res: Response) => {
+        try {
+            const { currentPassword, newPassword } = req.body;
+            
+            if (!newPassword || newPassword.length < 8) {
+                return res.status(400).json({ 
+                    error: 'La password deve essere di almeno 8 caratteri' 
+                });
+            }
+
+            const vaultConfig = JSON.parse(fs.readFileSync(VAULT_CONFIG_PATH, 'utf8'));
+            
+            // Se esiste già una password, verifica quella corrente
+            if (vaultConfig.passwordHash) {
+                if (!currentPassword) {
+                    return res.status(400).json({ 
+                        error: 'È richiesta la password corrente' 
+                    });
+                }
+                
+                const isValid = await bcrypt.compare(
+                    currentPassword, 
+                    vaultConfig.passwordHash
+                );
+                
+                if (!isValid) {
+                    return res.status(401).json({ 
+                        error: 'Password corrente non valida' 
+                    });
+                }
+            }
+
+            // Genera il salt e hash della nuova password
+            const salt = await bcrypt.genSalt(10);
+            const hash = await bcrypt.hash(newPassword, salt);
+
+            // Aggiorna la configurazione
+            vaultConfig.passwordHash = hash;
+            vaultConfig.lastModified = new Date().toISOString();
+            
+            fs.writeFileSync(VAULT_CONFIG_PATH, JSON.stringify(vaultConfig, null, 2));
+
+            res.status(200).json({ 
+                message: 'Password della cassaforte impostata con successo' 
+            });
+        } catch (error) {
+            logger.error('Errore durante l\'impostazione della password della vault', error);
+            res.status(500).json({ 
+                error: 'Errore durante l\'impostazione della password' 
+            });
+        }
+    },
+
+    checkVaultStatus: async (req: Request, res: Response) => {
+        try {
+            const vaultConfig = JSON.parse(fs.readFileSync(VAULT_CONFIG_PATH, 'utf8'));
+            res.status(200).json({ 
+                isConfigured: !!vaultConfig.passwordHash 
+            });
+        } catch (error) {
+            logger.error('Errore durante il controllo dello stato della vault', error);
+            res.status(500).json({ 
+                error: 'Errore durante il controllo dello stato della cassaforte' 
+            });
+        }
+    },
+
+    resetVaultPassword: async (req: Request, res: Response) => {
+        try {
+            // Leggi il file di configurazione
+            const vaultConfig = JSON.parse(fs.readFileSync(VAULT_CONFIG_PATH, 'utf8'));
+            
+            // Resetta la password (imposta passwordHash a null)
+            vaultConfig.passwordHash = null;
+            vaultConfig.lastModified = new Date().toISOString();
+            vaultConfig.resetDate = new Date().toISOString();
+            
+            // Salva la configurazione
+            fs.writeFileSync(VAULT_CONFIG_PATH, JSON.stringify(vaultConfig, null, 2));
+
+            // Rimuovi tutti i token JWT attivi (opzionale)
+            // In questo caso gli utenti dovranno riautenticarsi
+
+            res.status(200).json({ 
+                message: 'Password della cassaforte resettata con successo' 
+            });
+        } catch (error) {
+            logger.error('Errore durante il reset della password della vault', error);
+            res.status(500).json({ 
+                error: 'Errore durante il reset della password' 
             });
         }
     }

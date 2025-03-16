@@ -34,6 +34,25 @@ export const sweetAlert = {
         return result.value;
     },
 
+    passwordPrompt: async (title: string, inputLabel: string) => {
+        const result = await Swal.fire({
+            title,
+            input: 'password',
+            inputLabel,
+            inputPlaceholder: 'Inserisci la password',
+            showCancelButton: true,
+            confirmButtonText: 'OK',
+            cancelButtonText: 'Annulla',
+            inputValidator: (value) => {
+                if (!value) {
+                    return 'La password è obbligatoria';
+                }
+                return null;
+            }
+        });
+        return result.value;
+    },
+
     success: (title: string, text?: string) => {
         return Swal.fire({
             title,

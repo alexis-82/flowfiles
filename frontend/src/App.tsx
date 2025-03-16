@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useRef, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import FileBrowser, { FileBrowserHandle } from './components/FileBrowser';
 import TrashView from './components/TrashView';
 import Changelog from './components/Changelog';
 import { Settings } from './components/Settings';
 import Editor from './components/Editor';
+import Vault from './components/Vault';
 import { fileService } from './services/fileService';
 import toast, { Toaster } from 'react-hot-toast';
 import { TbMenu2 } from "react-icons/tb";
@@ -27,10 +28,21 @@ export const ThemeContext = createContext<ThemeContextType>({
 
 function MainLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<'files' | 'trash' | 'settings' | 'changelog'>('files');
+  const [currentView, setCurrentView] = useState<'files' | 'trash' | 'settings' | 'changelog' | 'vault'>('files');
   const [storageUpdateTrigger, setStorageUpdateTrigger] = useState(0);
   const fileBrowserRef = useRef<FileBrowserHandle>(null);
   const [isDarkMode, setIsDarkMode] = useState(document.documentElement.classList.contains('dark'));
+  const location = useLocation();
+
+  useEffect(() => {
+    // Controlla se dobbiamo tornare alla vista vault
+    const state = location.state as { returnToVault?: boolean };
+    if (state?.returnToVault) {
+      setCurrentView('vault');
+      // Pulisci lo state per evitare che il cambio di vista si ripeta
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   const toggleTheme = () => {
     const newTheme = !isDarkMode;
@@ -96,6 +108,8 @@ function MainLayout() {
         );
       case 'changelog':
         return <Changelog />;
+      case 'vault':
+        return <Vault onStorageUpdate={() => setStorageUpdateTrigger(prev => prev + 1)} />;
       default:
         return null;
     }

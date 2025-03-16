@@ -10,8 +10,8 @@ import { sweetAlert } from '../utils/sweetAlert';
 interface SidebarProps {
     isOpen: boolean;
     onDeleteAll: () => void;
-    onViewChange: (view: 'files' | 'trash' | 'settings' | 'changelog') => void;
-    currentView: 'files' | 'trash' | 'settings' | 'changelog';
+    onViewChange: (view: 'files' | 'trash' | 'settings' | 'changelog' | 'vault') => void;
+    currentView: 'files' | 'trash' | 'settings' | 'changelog' | 'vault';
     onRefreshFiles: () => void;
     storageUpdateTrigger?: number;
     onResetPath: () => void;
@@ -220,6 +220,19 @@ const Sidebar: React.FC<SidebarProps> = ({
                         </li>
                         <li>
                             <button
+                                onClick={() => onViewChange('vault')}
+                                className={`flex items-center w-full p-2 rounded-lg ${
+                                    currentView === 'vault'
+                                        ? 'text-blue-600 bg-blue-50 dark:bg-blue-900 dark:text-blue-400'
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900'
+                                }`}
+                            >
+                                <span className="material-icons mr-3">lock</span>
+                                Cassaforte
+                            </button>
+                        </li>
+                        <li>
+                            <button
                                 onClick={() => onViewChange('changelog')}
                                 className={`flex items-center w-full p-2 rounded-lg ${
                                     currentView === 'changelog'
@@ -265,7 +278,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 {/* Footer */}
-                <p className="mt-2 text-xs text-gray-700 dark:text-gray-300 text-center">v1.4.2</p>
+                <p className="mt-2 text-xs text-gray-700 dark:text-gray-300 text-center">v1.4.3</p>
             </div>
         </div>
     );
