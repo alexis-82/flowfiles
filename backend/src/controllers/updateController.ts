@@ -2,13 +2,13 @@ import { Request, Response } from 'express';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import fs from 'fs';
 import logger from '../utils/logger';
+import { fileURLToPath } from 'url';
 
 const execAsync = promisify(exec);
 
-// Soluzione per __dirname in ambiente ESM
+// Fix per __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -18,89 +18,34 @@ export const updateController = {
             const { script } = req.body;
             logger.info('Richiesta aggiornamento ricevuta per script:', script);
             
-            // Directory radice del progetto - saliamo di un ulteriore livello
+            // Directory radice del progetto
             const rootDir = path.join(__dirname, '../../../../');
             logger.info('Directory radice del progetto:', rootDir);
             
-            // Log per debug struttura directory
-            try {
-                const frontendPublicPath = path.join(rootDir, 'frontend/public');
-                logger.info('frontend/public esiste:', fs.existsSync(frontendPublicPath));
+            // Prova diversi percorsi possibili per trovare lo script
+            let scriptPath = path.join(rootDir, script);
+            let scriptFound = fs.existsSync(scriptPath);
+            
+            // Se non lo trova nel percorso originale, prova altre possibili posizioni
+            if (!scriptFound) {
+                logger.info('Script non trovato al percorso specificato, provo percorsi alternativi');
                 
-                // Se la directory esiste, elenca i contenuti
-                if (fs.existsSync(frontendPublicPath)) {
-                    const scriptsPath = path.join(frontendPublicPath, 'scripts');
-                    if (fs.existsSync(scriptsPath)) {
-                        const files = fs.readdirSync(scriptsPath);
-                        logger.info('File in frontend/public/scripts:', files);
+                // Prova a cercare lo script direttamente nella directory public/scripts
+                const alternativePaths = [
+                    path.join(rootDir, 'frontend/public', path.basename(script)),
+                    path.join(rootDir, 'frontend/public/scripts', path.basename(script)),
+                    path.join(rootDir, 'public/scripts', path.basename(script)),
+                    path.join(rootDir, 'public', path.basename(script))
+                ];
+                
+                for (const altPath of alternativePaths) {
+                    logger.info('Verifico percorso alternativo:', altPath);
+                    if (fs.existsSync(altPath)) {
+                        scriptPath = altPath;
+                        scriptFound = true;
+                        logger.info('Script trovato in percorso alternativo:', scriptPath);
+                        break;
                     }
-                }
-            } catch (error) {
-                logger.error('Errore durante la verifica delle directory:', error);
-            }
-            
-            // Gestisci il nuovo formato dello script
-            let scriptName = '';
-            if (typeof script === 'object' && script !== null) {
-                // Nuovo formato con oggetto
-                logger.info('Ricevuto nuovo formato script con oggetto:', script);
-                scriptName = script.name || '';
-            } else {
-                // Formato vecchio con stringa
-                scriptName = typeof script === 'string' ? script : '';
-            }
-            
-            if (!scriptName) {
-                logger.error('Nome script non valido');
-                return res.status(400).json({
-                    success: false,
-                    error: 'Nome script non valido'
-                });
-            }
-            
-            // Prepara elenco di percorsi possibili
-            const possiblePaths = [];
-            
-            // Aggiungi i percorsi specificati dal frontend
-            if (typeof script === 'object' && script !== null && Array.isArray(script.possiblePaths)) {
-                for (const possiblePath of script.possiblePaths) {
-                    possiblePaths.push(path.join(rootDir, possiblePath));
-                }
-                logger.info('Percorsi forniti dal frontend:', script.possiblePaths);
-            }
-            
-            // Aggiungi i percorsi standard
-            possiblePaths.push(
-                // Percorsi relativi alla root
-                path.join(rootDir, scriptName),
-                path.join(rootDir, 'scripts', scriptName),
-                // Percorsi frontend
-                path.join(rootDir, 'frontend/public/scripts', scriptName),
-                path.join(rootDir, 'frontend/public', scriptName),
-                // Percorsi build
-                path.join(rootDir, 'frontend/dist/scripts', scriptName),
-                path.join(rootDir, 'frontend/dist', scriptName),
-                path.join(rootDir, 'dist/scripts', scriptName),
-                path.join(rootDir, 'dist', scriptName),
-                // Percorsi relativi alla directory corrente
-                path.join(process.cwd(), 'scripts', scriptName),
-                path.join(process.cwd(), scriptName),
-                path.join(process.cwd(), 'public/scripts', scriptName)
-            );
-            
-            logger.info(`Ricerca dello script "${scriptName}" in ${possiblePaths.length} percorsi possibili`);
-            
-            // Cerca lo script nei percorsi possibili
-            let scriptPath = '';
-            let scriptFound = false;
-            
-            for (const possiblePath of possiblePaths) {
-                logger.info('Verifico percorso:', possiblePath);
-                if (fs.existsSync(possiblePath)) {
-                    scriptPath = possiblePath;
-                    scriptFound = true;
-                    logger.info('Script trovato in:', scriptPath);
-                    break;
                 }
             }
 
@@ -133,48 +78,99 @@ export const updateController = {
                 });
             }
             
-            // Esecuzione dello script in modo uniforme su tutti i sistemi
-            logger.info('Esecuzione script da directory:', path.dirname(scriptPath));
-            const { stdout, stderr } = await execAsync(`"${scriptPath}"`, {
-                cwd: rootDir, // Esegui sempre dalla directory principale del progetto
-                timeout: 120000 // 120 secondi di timeout
-            });
-
-            if (stderr && stderr.trim() !== '') {
-                // Alcuni messaggi di warning in stderr possono essere normali
-                // Ignora i warning di npm
-                const isNpmWarning = stderr.includes('npm WARN') || stderr.includes('npm notice');
-                const isGitWarning = stderr.includes('warning: ');
+            // Su Windows, esegui lo script in una finestra visibile
+            if (process.platform === 'win32') {
+                logger.info('Esecuzione script in una finestra visibile (Windows)');
                 
-                if (isNpmWarning || isGitWarning) {
-                    logger.warn('Warning durante l\'esecuzione dello script (non fatale):', stderr);
-                } else {
-                    logger.error('Errore durante l\'esecuzione dello script:', stderr);
-                    return res.status(500).json({
-                        success: false,
-                        error: stderr,
-                        output: stdout
-                    });
-                }
-            }
+                // Crea un batch wrapper temporaneo che esegue lo script e mantiene la finestra aperta
+                const wrapperPath = path.join(path.dirname(scriptPath), 'update_visible.bat');
+                const wrapperContent = `@echo off
+echo Esecuzione dello script di aggiornamento in corso...
+echo La finestra rimarrà aperta per mostrare tutto il processo
 
-            logger.info('Output dello script:', stdout);
-            
-            // Controlla se l'output contiene un messaggio di successo
-            const isSuccess = stdout.includes('completato con successo') || !stderr || stderr.trim() === '';
-            
-            if (!isSuccess) {
-                logger.warn('Esecuzione completata ma senza conferma di successo');
+REM Verifica se lo script è in esecuzione in una directory di sistema
+echo %CD% | findstr /I /C:"Windows\\System32" > nul
+if %errorlevel% equ 0 (
+    echo ERRORE: Questo script non può essere eseguito dalla directory di sistema Windows\\System32.
+    echo Per ragioni di sicurezza, sarà forzato l'uso della directory principale.
+)
+
+REM Determina percorsi basati sullo script e non sul punto di esecuzione
+set "SCRIPT_DIR=%~dp0"
+set "ABSOLUTE_ROOT=${rootDir.replace(/\\/g, "\\\\")}"
+
+REM Torna sempre alla directory principale del programma, indipendentemente da dove viene eseguito
+cd /d "%ABSOLUTE_ROOT%"
+echo [INFO] Directory principale (forzata): %CD%
+
+REM Esegui lo script principale passando il percorso assoluto
+call "%SCRIPT_DIR%${path.basename(scriptPath)}" "%ABSOLUTE_ROOT%"
+
+echo.
+echo Esecuzione completata. Premere un tasto per chiudere questa finestra.
+pause > nul
+`;
+                
+                fs.writeFileSync(wrapperPath, wrapperContent);
+                logger.info('Wrapper script creato in:', wrapperPath);
+                
+                // Esegui il wrapper con start per aprire una nuova finestra, forzando la directory di lavoro
+                const startCommand = `start "Aggiornamento FlowFiles" /D "${rootDir}" cmd /k "${wrapperPath}"`;
+                logger.info('Esecuzione comando:', startCommand);
+                
+                // Esegui start senza attendere il completamento
+                exec(startCommand, { cwd: rootDir });
+                
+                // Invia la risposta immediatamente
+                return res.json({
+                    success: true,
+                    message: 'Script di aggiornamento avviato in una finestra separata',
+                    output: 'Lo script di aggiornamento è stato avviato in una finestra separata. Al termine, premi un tasto per chiudere la finestra.'
+                });
             } else {
-                logger.info('Aggiornamento completato con successo');
-            }
+                // Su sistemi non-Windows, continua con l'esecuzione normale
+                logger.info('Esecuzione script da directory:', path.dirname(scriptPath));
+                const { stdout, stderr } = await execAsync(`"${scriptPath}"`, {
+                    cwd: rootDir, // Esegui sempre dalla directory principale del progetto
+                    timeout: 120000 // 120 secondi di timeout (aumentato per dare più tempo)
+                });
 
-            // Invia la risposta con l'output dello script
-            res.json({ 
-                success: true,
-                message: 'Script eseguito correttamente',
-                output: stdout 
-            });
+                if (stderr && stderr.trim() !== '') {
+                    // Alcuni messaggi di warning in stderr possono essere normali
+                    // Ignora i warning di npm
+                    const isNpmWarning = stderr.includes('npm WARN') || stderr.includes('npm notice');
+                    const isGitWarning = stderr.includes('warning: ');
+                    
+                    if (isNpmWarning || isGitWarning) {
+                        logger.warn('Warning durante l\'esecuzione dello script (non fatale):', stderr);
+                    } else {
+                        logger.error('Errore durante l\'esecuzione dello script:', stderr);
+                        return res.status(500).json({
+                            success: false,
+                            error: stderr,
+                            output: stdout
+                        });
+                    }
+                }
+
+                logger.info('Output dello script:', stdout);
+                
+                // Controlla se l'output contiene un messaggio di successo
+                const isSuccess = stdout.includes('completato con successo') || !stderr || stderr.trim() === '';
+                
+                if (!isSuccess) {
+                    logger.warn('Esecuzione completata ma senza conferma di successo');
+                } else {
+                    logger.info('Aggiornamento completato con successo');
+                }
+
+                // Invia la risposta con l'output dello script
+                res.json({ 
+                    success: true,
+                    message: 'Script eseguito correttamente',
+                    output: stdout 
+                });
+            }
         } catch (error) {
             logger.error('Errore durante l\'aggiornamento:', error);
             res.status(500).json({ 
