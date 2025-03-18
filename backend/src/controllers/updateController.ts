@@ -18,6 +18,9 @@ export const updateController = {
             const { script } = req.body;
             logger.info('Richiesta aggiornamento ricevuta per script:', script);
             
+            // Log della directory di lavoro corrente
+            logger.info('Directory di lavoro corrente:', process.cwd());
+            
             // Directory radice del progetto
             const rootDir = path.join(__dirname, '../../../../');
             logger.info('Directory radice del progetto:', rootDir);
@@ -35,7 +38,15 @@ export const updateController = {
                     path.join(rootDir, 'frontend/public', path.basename(script)),
                     path.join(rootDir, 'frontend/public/scripts', path.basename(script)),
                     path.join(rootDir, 'public/scripts', path.basename(script)),
-                    path.join(rootDir, 'public', path.basename(script))
+                    path.join(rootDir, 'public', path.basename(script)),
+                    // Aggiungi percorsi che includono flowfiles
+                    path.join(rootDir, 'flowfiles/frontend/public/scripts', path.basename(script)),
+                    path.join(rootDir, 'flowfiles/frontend/public', path.basename(script)),
+                    // Percorsi relativi alla directory di lavoro corrente
+                    path.join(process.cwd(), 'frontend/public/scripts', path.basename(script)),
+                    path.join(process.cwd(), 'public/scripts', path.basename(script)),
+                    // Cerca in absolute paths
+                    path.join('C:/Users/stage23/Desktop/alessio/sviluppo/bug/test/flowfiles/frontend/public/scripts', path.basename(script))
                 ];
                 
                 for (const altPath of alternativePaths) {
