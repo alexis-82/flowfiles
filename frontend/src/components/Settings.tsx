@@ -85,7 +85,7 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
             const scriptPath = isWindows ? 'scripts/update.bat' : 'scripts/update.sh';
             
             // Mostra dialogo di installazione
-            const installSwal = Swal.fire({
+            Swal.fire({
                 title: 'Installazione aggiornamento',
                 html: 'Installazione in corso...<br/><div id="update-status" class="mt-3 text-sm"></div>',
                 didOpen: () => {
