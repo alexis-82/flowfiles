@@ -22,7 +22,7 @@ interface GithubRelease {
     html_url: string;
 }
 
-const CURRENT_VERSION = 'v1.4.3';
+const CURRENT_VERSION = 'v1.4.2';
 
 export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
     const [config, setConfig] = useState<StorageConfig>({
@@ -82,7 +82,7 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
         try {
             // Esegui lo script di aggiornamento appropriato in base al sistema operativo
             const isWindows = navigator.platform.toLowerCase().includes('win');
-            const scriptPath = isWindows ? 'scripts/update.bat' : 'scripts/update.sh';
+            const scriptPath = isWindows ? 'frontend/public/scripts/update.bat' : 'frontend/public/scripts/update.sh';
             
             // Mostra dialogo di installazione
             Swal.fire({
@@ -111,7 +111,11 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
 
             try {
                 // Esegui lo script tramite il backend
-                const response = await fetch('/api/update/execute-update', {
+                const url = import.meta.env.DEV ? 
+                    'http://localhost:3000/api/update/execute-update' : 
+                    '/api/update/execute-update';
+                
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
