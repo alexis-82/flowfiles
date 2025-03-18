@@ -82,42 +82,122 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
         try {
             // Esegui lo script di aggiornamento appropriato in base al sistema operativo
             const isWindows = navigator.platform.toLowerCase().includes('win');
-            const scriptPath = isWindows ? '/scripts/update.bat' : '/scripts/update.sh';
+            const scriptPath = isWindows ? 'scripts/update.bat' : 'scripts/update.sh';
             
-            await Swal.fire({
+            // Mostra dialogo di installazione
+            const installSwal = Swal.fire({
                 title: 'Installazione aggiornamento',
-                html: 'Installazione in corso...',
-                timerProgressBar: true,
+                html: 'Installazione in corso...<br/><div id="update-status" class="mt-3 text-sm"></div>',
                 didOpen: () => {
                     Swal.showLoading();
                 },
                 allowOutsideClick: false,
                 allowEscapeKey: false,
-                allowEnterKey: false
+                allowEnterKey: false,
+                showConfirmButton: false
             });
 
-            // Esegui lo script tramite il backend
-            const response = await fetch('/api/execute-update', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ script: scriptPath })
-            });
+            // Funzione per aggiornare lo stato
+            const updateStatus = (message: string) => {
+                const statusElement = document.getElementById('update-status');
+                if (statusElement) {
+                    statusElement.innerHTML += `${message}<br/>`;
+                    // Auto-scroll verso il basso
+                    statusElement.scrollTop = statusElement.scrollHeight;
+                }
+            };
 
-            if (!response.ok) {
-                throw new Error('Errore durante l\'installazione');
+            updateStatus('Avvio processo di aggiornamento...');
+
+            try {
+                // Esegui lo script tramite il backend
+                const response = await fetch('/api/update/execute-update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ script: scriptPath })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    updateStatus(`Errore HTTP ${response.status}: ${errorText}`);
+                    throw new Error(`Errore HTTP ${response.status}: ${errorText}`);
+                }
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    updateStatus(`Errore: ${result.error || 'Errore sconosciuto'}`);
+                    
+                    // Chiudi il dialogo solo dopo un click dell'utente
+                    setTimeout(() => {
+                        Swal.update({
+                            showConfirmButton: true,
+                            confirmButtonText: 'Chiudi'
+                        });
+                    }, 1000);
+                    
+                    throw new Error(result.error || 'Errore durante l\'installazione');
+                }
+
+                // Verifica se lo script è stato avviato in una finestra separata
+                const isInSeparateWindow = result.message && result.message.includes('finestra separata');
+
+                if (isInSeparateWindow) {
+                    // Lo script è stato avviato in una finestra separata
+                    updateStatus(result.output || 'Aggiornamento avviato in una finestra separata');
+                    
+                    // Aggiorna il dialogo per mostrare un messaggio informativo
+                    await Swal.update({
+                        title: 'Aggiornamento in corso',
+                        html: `
+                            <div class="text-center">
+                                <p>L'aggiornamento è stato avviato in una finestra separata.</p>
+                                <p class="mt-3 text-sm">Puoi seguire il processo di aggiornamento nella finestra del terminale che si è aperta.</p>
+                                <p class="mt-3 text-sm text-gray-600">Nota: Al termine dell'aggiornamento, l'applicazione sarà riavviata automaticamente.</p>
+                            </div>
+                        `,
+                        icon: 'info',
+                        showConfirmButton: true,
+                        confirmButtonText: 'Ho capito',
+                        showCancelButton: false
+                    });
+                    
+                    // Chiudi il dialogo corrente quando l'utente clicca sul pulsante
+                    await Swal.close();
+                } else {
+                    // Processo normale (non in finestra separata)
+                    updateStatus(result.output || 'Aggiornamento eseguito');
+                    
+                    // Chiudi il dialogo corrente
+                    await Swal.close();
+
+                    // Mostra il messaggio di successo
+                    await Swal.fire({
+                        title: 'Aggiornamento completato',
+                        text: 'L\'applicazione verrà riavviata per applicare gli aggiornamenti',
+                        icon: 'success',
+                        confirmButtonText: 'Riavvia ora'
+                    });
+
+                    // Riavvia l'applicazione
+                    window.location.reload();
+                }
+            } catch (error) {
+                // Gestisci errori di rete o altre eccezioni durante la fetch
+                updateStatus(`Errore di connessione: ${error instanceof Error ? error.message : String(error)}`);
+                
+                // Mostra pulsante di chiusura
+                setTimeout(() => {
+                    Swal.update({
+                        showConfirmButton: true,
+                        confirmButtonText: 'Chiudi'
+                    });
+                }, 1000);
+                
+                throw error; // Rilancia l'errore per la gestione esterna
             }
-
-            await Swal.fire({
-                title: 'Aggiornamento completato',
-                text: 'L\'applicazione verrà riavviata per applicare gli aggiornamenti',
-                icon: 'success',
-                confirmButtonText: 'Riavvia ora'
-            });
-
-            // Riavvia l'applicazione
-            window.location.reload();
         } catch (error) {
             console.error('Errore durante l\'installazione:', error);
             toast.error('Errore durante l\'installazione dell\'aggiornamento');
