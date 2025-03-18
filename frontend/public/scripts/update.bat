@@ -1,46 +1,92 @@
 @echo off
-echo Iniziando l'aggiornamento di Flowfiles...
+setlocal enabledelayedexpansion
 
-REM Salva il percorso corrente
-set CURRENT_DIR=%CD%
+REM Imposta la directory principale del programma come directory corrente
+cd /d %~dp0..\..\..
+set "MAIN_DIR=%CD%"
+echo.
+echo Directory principale: %MAIN_DIR%
+echo.
 
-REM Backup dei file di configurazione se necessario
-echo Creazione backup configurazioni...
-if exist .env (
-    copy .env .env.backup
+echo ===================================================
+echo            AGGIORNAMENTO FLOWFILES
+echo ===================================================
+
+echo.
+echo [1/6] Arresto dei processi di backend e frontend...
+taskkill /F /IM node.exe /T >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo Processi Node.js terminati con successo.
+) else (
+    echo Nessun processo Node.js attivo da terminare.
 )
 
-REM Pull delle ultime modifiche
-echo Download aggiornamenti...
-git fetch origin
-git pull origin main
+echo.
+echo [2/6] Download dell'aggiornamento...
+set "tempDir=%TEMP%\flowfiles-update"
+set "zipFile=%tempDir%\update.zip"
 
-REM Installa dipendenze backend
-echo Aggiornamento dipendenze backend...
-cd backend
-call npm install
+REM Crea cartella temporanea
+if exist "%tempDir%" rmdir /S /Q "%tempDir%"
+mkdir "%tempDir%"
 
-REM Build backend
-echo Build backend...
-call npm run build
+REM Scarica l'aggiornamento
+powershell -Command "& {Invoke-WebRequest -Uri 'https://github.com/alexis-82/flowfiles/archive/refs/heads/main.zip' -OutFile '%zipFile%'}"
 
-REM Installa dipendenze frontend
-echo Aggiornamento dipendenze frontend...
-cd ../frontend
-call npm install
-
-REM Build frontend
-echo Build frontend...
-call npm run build
-
-REM Torna alla directory principale
-cd %CURRENT_DIR%
-
-REM Ripristina configurazioni
-if exist .env.backup (
-    move /Y .env.backup .env
+if not exist "%zipFile%" (
+    echo Errore durante il download del file di aggiornamento.
+    goto :error
 )
 
-echo Aggiornamento completato!
-echo Per applicare le modifiche, riavvia l'applicazione.
-pause 
+echo.
+echo [3/6] Estrazione dei file...
+powershell -Command "& {Expand-Archive -Path '%zipFile%' -DestinationPath '%tempDir%' -Force}"
+
+if %ERRORLEVEL% NEQ 0 (
+    echo Errore durante l'estrazione del file zip.
+    goto :error
+)
+
+echo.
+echo [4/6] Preparazione per la copia dei file...
+set "extractedDir=%tempDir%\flowfiles-main"
+
+REM Elimina il file update.bat dalla cartella temporanea
+echo Eliminazione del file update.bat estratto per evitare la sovrascrittura...
+if exist "%extractedDir%\frontend\public\scripts\update.bat" (
+    del /F /Q "%extractedDir%\frontend\public\scripts\update.bat"
+    echo File update.bat eliminato con successo dalla cartella temporanea.
+) else (
+    echo Il file update.bat non è stato trovato nella cartella estratta.
+)
+
+echo.
+echo [5/6] Copia dei file nella directory principale...
+robocopy "%extractedDir%" "." /E /XD .git node_modules
+
+echo.
+echo [6/6] Pulizia...
+cd /d "%MAIN_DIR%"
+rmdir /S /Q "%tempDir%"
+
+echo.
+echo ===================================================
+echo        AGGIORNAMENTO COMPLETATO CON SUCCESSO
+echo ===================================================
+echo L'installazione delle dipendenze continua in background.
+echo Per avviare l'applicazione, usa lo script start.bat dopo che l'aggiornamento è completato.
+echo.
+goto :end
+
+:error
+echo.
+echo ===================================================
+echo       ERRORE DURANTE L'AGGIORNAMENTO
+echo ===================================================
+pause
+exit /b 1
+
+:end
+echo Premere un tasto per uscire...
+pause > nul
+exit
