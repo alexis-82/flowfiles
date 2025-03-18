@@ -22,7 +22,7 @@ interface GithubRelease {
     html_url: string;
 }
 
-const CURRENT_VERSION = 'v1.4.2';
+const CURRENT_VERSION = 'v1.4.3';
 
 export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
     const [config, setConfig] = useState<StorageConfig>({
