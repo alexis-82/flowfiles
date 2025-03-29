@@ -114,4 +114,3 @@ echo "systemctl status filebrowser-frontend  # Controlla lo stato del frontend"
 echo "systemctl status filebrowser-backend   # Controlla lo stato del backend"
 echo "journalctl -u filebrowser-frontend    # Visualizza i log del frontend"
 echo "journalctl -u filebrowser-backend     # Visualizza i log del backend"
-

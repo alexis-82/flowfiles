@@ -6,6 +6,7 @@ import { ThemeContext } from '../App';
 import Swal from 'sweetalert2';
 import { sweetAlert } from '../utils/sweetAlert';
 import { VaultPasswordDialog } from './VaultPasswordDialog';
+import { API_ENDPOINTS } from '../config';
 
 interface SettingsProps {
     onSettingsUpdate: () => void;
@@ -112,7 +113,7 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
             try {
                 // Esegui lo script tramite il backend
                 const url = import.meta.env.DEV ? 
-                    'http://localhost:3000/api/update/execute-update' : 
+                    `${API_ENDPOINTS.UPDATE}/execute-update` : 
                     '/api/update/execute-update';
                 
                 const response = await fetch(url, {

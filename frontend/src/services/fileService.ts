@@ -1,7 +1,9 @@
 import axios from 'axios';
+import { API_ENDPOINTS } from '../config';
 
-const API_URL = 'http://localhost:3000/api/files';
-const SETTINGS_URL = 'http://localhost:3000/api/settings';
+// Utilizziamo gli URL dalla configurazione centralizzata
+const API_URL = API_ENDPOINTS.FILES;
+const SETTINGS_URL = API_ENDPOINTS.SETTINGS;
 
 export const fileService = {
   async uploadFile(file: File, path: string = '/', onProgress?: (progress: number) => void) {

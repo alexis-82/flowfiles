@@ -34,6 +34,7 @@ Un'applicazione web moderna per la navigazione dei file costruita con React e No
 
 ### Prerequisiti
 
+- curl
 - Docker
 - Docker Compose
 
@@ -140,6 +141,7 @@ A modern web-based file browser application built with React and Node.js, allowi
 
 ### Prerequisites
 
+- curl
 - Docker
 - Docker Compose
 
