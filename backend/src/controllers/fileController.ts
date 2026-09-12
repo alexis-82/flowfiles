@@ -61,13 +61,14 @@ const getFilesRecursively = (dir: string, basePath: string = '', filterSpecialDi
             const relativePath = path.join(basePath, filename);
             const stats = fs.statSync(fullPath);
             const isDirectory = stats.isDirectory();
+            const parentStats = fs.statSync(dir);
 
             const item = {
                 name: filename,
                 size: isDirectory ? '-' : stats.size / (1024 * 1024) < 1 
                     ? `${(stats.size / 1024).toFixed(1)} KB`
                     : `${(stats.size / (1024 * 1024)).toFixed(1)} MB`,
-                date: stats.mtime.toISOString().split('T')[0],
+                date: isDirectory ? stats.mtime.toISOString() : parentStats.mtime.toISOString(),
                 type: isDirectory ? 'folder' : 'file',
                 path: relativePath.replace(/\\/g, '/'),
             };
@@ -315,9 +316,7 @@ export const fileController = {
     deleteAllFiles: async (req: Request, res: Response) => {
         try {
             const items = fs.readdirSync(UPLOAD_DIR)
-                .filter(filename => filename !== '.gitkeep' && 
-                                  filename !== '.trash' && 
-                                  filename !== '.vault');
+                .filter(filename => filename !== '.gitkeep' && filename !== '.trash' && filename !== '.vault');
                 
             for (const item of items) {
                 const itemPath = path.join(UPLOAD_DIR, item);
@@ -835,5 +834,41 @@ export const fileController = {
                 error: 'Errore durante il reset della password' 
             });
         }
-    }
+    },
+
+    moveFiles: async (req: Request, res: Response) => {
+        try {
+            const { files, destinationPath } = req.body;
+            
+            if (!Array.isArray(files) || !destinationPath) {
+                return res.status(400).json({ error: 'Files e destinazione sono richiesti' });
+            }
+
+            // Verifica e crea la cartella di destinazione se non esiste
+            const fullDestPath = path.join(UPLOAD_DIR, sanitizePath(destinationPath));
+            if (!fs.existsSync(fullDestPath)) {
+                fs.mkdirSync(fullDestPath, { recursive: true });
+            }
+
+            // Sposta ogni file
+            for (const filePath of files) {
+                // Gestisci il caso della home directory
+                const sanitizedFilePath = filePath === '/' ? '' : sanitizePath(filePath);
+                const fullSourcePath = path.join(UPLOAD_DIR, sanitizedFilePath);
+                const fileName = sanitizedFilePath ? path.basename(sanitizedFilePath) : filePath;
+                const fullNewPath = path.join(fullDestPath, fileName);
+
+                if (fs.existsSync(fullSourcePath)) {
+                    fs.renameSync(fullSourcePath, fullNewPath);
+                } else {
+                    logger.error(`File non trovato: ${fullSourcePath}`);
+                }
+            }
+
+            res.json({ success: true, message: 'Files spostati con successo' });
+        } catch (error) {
+            logger.error('Errore durante lo spostamento dei file:', error);
+            res.status(500).json({ error: 'Errore durante lo spostamento dei file' });
+        }
+    },
 };

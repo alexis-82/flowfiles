@@ -23,7 +23,7 @@ interface GithubRelease {
     html_url: string;
 }
 
-const CURRENT_VERSION = 'v1.4.3';
+const CURRENT_VERSION = 'v1.4.4';
 
 export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
     const [config, setConfig] = useState<StorageConfig>({
@@ -84,7 +84,7 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
             // Esegui lo script di aggiornamento appropriato in base al sistema operativo
             const isWindows = navigator.platform.toLowerCase().includes('win');
             const scriptPath = isWindows ? 'frontend/public/scripts/update.bat' : 'frontend/public/scripts/update.sh';
-            
+
             // Mostra dialogo di installazione
             Swal.fire({
                 title: 'Installazione aggiornamento',
@@ -112,10 +112,10 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
 
             try {
                 // Esegui lo script tramite il backend
-                const url = import.meta.env.DEV ? 
-                    `${API_ENDPOINTS.UPDATE}/execute-update` : 
+                const url = import.meta.env.DEV ?
+                    `${API_ENDPOINTS.UPDATE}/execute-update` :
                     '/api/update/execute-update';
-                
+
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: {
@@ -134,7 +134,7 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
 
                 if (!result.success) {
                     updateStatus(`Errore: ${result.error || 'Errore sconosciuto'}`);
-                    
+
                     // Chiudi il dialogo solo dopo un click dell'utente
                     setTimeout(() => {
                         Swal.update({
@@ -142,7 +142,7 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
                             confirmButtonText: 'Chiudi'
                         });
                     }, 1000);
-                    
+
                     throw new Error(result.error || 'Errore durante l\'installazione');
                 }
 
@@ -152,7 +152,7 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
                 if (isInSeparateWindow) {
                     // Lo script è stato avviato in una finestra separata
                     updateStatus(result.output || 'Aggiornamento avviato in una finestra separata');
-                    
+
                     // Aggiorna il dialogo per mostrare un messaggio informativo
                     await Swal.update({
                         title: 'Aggiornamento in corso',
@@ -168,13 +168,13 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
                         confirmButtonText: 'Ho capito',
                         showCancelButton: false
                     });
-                    
+
                     // Chiudi il dialogo corrente quando l'utente clicca sul pulsante
                     await Swal.close();
                 } else {
                     // Processo normale (non in finestra separata)
                     updateStatus(result.output || 'Aggiornamento eseguito');
-                    
+
                     // Chiudi il dialogo corrente
                     await Swal.close();
 
@@ -192,7 +192,7 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
             } catch (error) {
                 // Gestisci errori di rete o altre eccezioni durante la fetch
                 updateStatus(`Errore di connessione: ${error instanceof Error ? error.message : String(error)}`);
-                
+
                 // Mostra pulsante di chiusura
                 setTimeout(() => {
                     Swal.update({
@@ -200,7 +200,7 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
                         confirmButtonText: 'Chiudi'
                     });
                 }, 1000);
-                
+
                 throw error; // Rilancia l'errore per la gestione esterna
             }
         } catch (error) {
@@ -294,7 +294,7 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
                         <div className="mb-6">
                             <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-200 text-center mb-4">Configurazione Storage</h2>
                             <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
-                                Configura i limiti di storage per il tuo file system. Questi limiti si applicano a tutti i file e cartelle nel sistema.
+                                Configura i limiti di storage per il tuo file system. Questi limiti si applicano a tutti i file e cartelle.
                             </p>
                         </div>
 

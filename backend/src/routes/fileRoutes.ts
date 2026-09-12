@@ -191,4 +191,8 @@ router.get('/vault/download/:filename', async (req, res) => {
     await fileController.downloadVaultFile(req, res);
 });
 
+router.post('/move', async (req, res) => {
+    await fileController.moveFiles(req, res);
+});
+
 export default router;

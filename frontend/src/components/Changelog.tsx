@@ -8,8 +8,25 @@ interface ChangelogEntry {
 
 const changelogData: ChangelogEntry[] = [
     {
+        version: "1.4.4",
+        date: "xx-12-2024",
+        changes: [
+            "Implementato editor Quill per i file di testo",
+            "Implementato editor Monaco per i file di codice",
+            "Migliorata l'interfaccia utente",
+            "Aggiunto in Menù l'opzione per selezionare/deselezionare tutti i file",
+            "Aggiunta la funzionalità di spostare i file selezionati in una cartella",
+            "Implementazione della funzionalità per supportare il drag and drop simultaneo di file e cartelle",
+            "Barra di progressione per l'upload di cartelle",
+            "Aggiunte nuove icone per i tipi di file",
+            "Modificato da DATA a CARICATO nella tabella dei files",
+            "Eliminata funzione con il checkbox per selezionare/deselezionare i file",
+            "Funzione con un click seleziona/deseleziona un file, doppio click per editare",
+        ]
+    },
+    {
         version: "1.4.3",
-        date: "16-03-2025",
+        date: "xx-12-2024",
         changes: [
             "Implementato selezione multipla di file e cartelle",
             "Aggiunta la funzionalità di scaricare i file selezionati",
@@ -23,7 +40,7 @@ const changelogData: ChangelogEntry[] = [
     },
     {
         version: "1.4.2",
-        date: "09-03-2025",
+        date: "xx-12-2024",
         changes: [
             "Aggiunto il supporto di visualizzazione delle immagini",
             "Aggiunto il supporto di visualizzazione dei file pdf",
@@ -37,7 +54,7 @@ const changelogData: ChangelogEntry[] = [
     },
     {
         version: "1.4.1",
-        date: "16-02-2025",
+        date: "xx-12-2024",
         changes: [
             "Fix per il drag and drop dei file",
             "Fix per la visualizzazione delle cartelle e dei file nel cestino",
@@ -48,7 +65,7 @@ const changelogData: ChangelogEntry[] = [
     },
     {
         version: "1.4.0",
-        date: "02-02-2025",
+        date: "xx-12-2024",
         changes: [
             "Implementato la barra di progressione per l'upload dei file di grosse dimensioni",
             "Implementato editor di file di testo, doppio click per modificare",

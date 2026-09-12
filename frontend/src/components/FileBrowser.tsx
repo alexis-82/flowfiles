@@ -9,7 +9,6 @@ import { toast } from 'react-hot-toast';
 import JSZip from 'jszip';
 // import path from 'path';
 import Swal from 'sweetalert2';
-import { API_ENDPOINTS } from '../config';
 
 interface FileData {
     name: string;
@@ -18,6 +17,7 @@ interface FileData {
     type: 'file' | 'folder';
     path: string;
     children?: FileData[];
+    originalTimestamp?: number;
 }
 
 // Definiamo l'interfaccia per il ref
@@ -43,17 +43,50 @@ const EDITABLE_EXTENSIONS = [
     'java', 'cpp', 'c', 'h', 'hpp', 'sql', 'env', 'gitignore', 'md', 'markdown',
     'gitkeep', 'csv', 'xlsx', 'xls', 'doc', 'docx', 'ppt', 'pptx', 'odt', 'ods',
     'odp', 'txt', 'rtf', 'csv', 'tsv', 'log', 'bak', 'tmp', 'old', 'backup', 'cache',
-    'temp', 'Dockerfile', 'dockerignore', 'dockerfile', 'info'
+    'temp', 'Dockerfile', 'dockerignore', 'dockerfile', 'info', 'mjs', 'mts', 'mjsx', 'mtsx'
 ];
 
 const PREVIEW_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'pdf'];
-
 const AUDIO_EXTENSIONS = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'wma'];
 const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogv', 'avi', 'mov', 'wmv'];
 
 const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFolderUpload, onStorageUpdate }) => {
     const [dragOver, setDragOver] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+    const [, setTotalFiles] = useState(0);
+    const [, setProcessedFiles] = useState(0);
+    const [isScanning, setIsScanning] = useState(false);
+    const toastIdRef = useRef<string>('');
+    const scannedFilesRef = useRef<number>(0);
+
+    const updateProgressToast = (processed: number, total: number, message: string = 'Caricamento in corso...') => {
+        if (total === 0) return;
+
+        const percentage = Math.round((processed / total) * 100);
+        let statusMessage = message;
+        let progressMessage = '';
+
+        if (isScanning) {
+            statusMessage = 'Scansione cartelle in corso...';
+            progressMessage = `Scansione: ${total} file trovati`;
+        } else {
+            progressMessage = `${processed}/${total} file (${percentage}%)`;
+        }
+
+        toast.loading(
+            <div className="flex flex-col">
+                <span>{statusMessage}</span>
+                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                    <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${percentage}%` }}
+                    />
+                </div>
+                <span className="text-xs text-gray-500 mt-1">{progressMessage}</span>
+            </div>,
+            { id: toastIdRef.current }
+        );
+    };
 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
@@ -65,16 +98,20 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
     };
 
     const handleFiles = async (files: File[]) => {
-        for (const file of files) {
-            try {
-                await onUpload(file, currentPath);
-            } catch (error) {
-                console.error('Errore durante il caricamento:', error);
-            }
-        }
+        const uploadPromises = files.map(file => 
+            onUpload(file, currentPath)
+                .catch(error => {
+                    console.error('Errore durante il caricamento:', error);
+                    customToast.error(`Errore durante il caricamento di ${file.name}`);
+                })
+        );
+        
+        await Promise.all(uploadPromises);
+        
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
+        if (onStorageUpdate) onStorageUpdate();
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -102,11 +139,21 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
     const processDirectory = async (directoryEntry: any, basePath: string, filesToUpload: File[]): Promise<void> => {
         return new Promise((resolve, reject) => {
             const reader = directoryEntry.createReader();
+            
             const readEntries = () => {
                 reader.readEntries(async (entries: any[]) => {
                     if (entries.length === 0) {
                         resolve();
                         return;
+                    }
+                    
+                    const fileEntries = entries.filter(entry => entry.isFile);
+                    if (fileEntries.length > 0) {
+                        scannedFilesRef.current += fileEntries.length;
+                        // Aggiungiamo un piccolo ritardo per rendere visibile il conteggio
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                        setTotalFiles(scannedFilesRef.current);
+                        updateProgressToast(0, scannedFilesRef.current, 'Scansione cartelle...');
                     }
                     
                     const promises = entries.map(entry => {
@@ -117,13 +164,11 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
                                     .catch(reject);
                             } else if (entry.isFile) {
                                 entry.file((file: File) => {
-                                    // Creiamo un nuovo File object con il percorso corretto
-                                    const fullPath = entry.fullPath.substring(1); // Rimuove lo slash iniziale
+                                    const fullPath = entry.fullPath.substring(1);
                                     const newFile = new File([file], file.name, {
                                         type: file.type,
                                         lastModified: file.lastModified
                                     });
-                                    // Aggiungiamo una proprietà custom per il percorso
                                     Object.defineProperty(newFile, 'webkitRelativePath', {
                                         value: fullPath,
                                         writable: false
@@ -148,82 +193,162 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
         event.preventDefault();
         setDragOver(false);
         const items = event.dataTransfer.items;
+        const files = Array.from(event.dataTransfer.files);
         const filesToUpload: File[] = [];
+        const directoryPromises: Promise<void>[] = [];
+        const filePromises: Promise<void>[] = [];
+        let uploadedFiles = 0;
 
-        // Gestione dei file diretti
-        const directFiles = Array.from(event.dataTransfer.files);
-        if (directFiles.length > 0 && !items[0].webkitGetAsEntry()?.isDirectory) {
-            for (const file of directFiles) {
-                try {
-                    await onUpload(file, currentPath);
-                } catch (error) {
-                    console.error('Errore durante il caricamento del file:', error);
-                    customToast.error(`Errore durante il caricamento di ${file.name}`);
+        // Reset progress state
+        scannedFilesRef.current = files.length;
+        setTotalFiles(files.length);
+        setProcessedFiles(0);
+        setIsScanning(true);
+        toastIdRef.current = toast.loading('Inizializzazione scansione...', { duration: Infinity });
+
+        try {
+            // Prima fase: scansione delle cartelle e conteggio dei file
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i].webkitGetAsEntry();
+                const file = files[i];
+                
+                if (item && file) {  // Verifichiamo che sia item che file esistano
+                    if (item.isFile) {
+                        filePromises.push(
+                            onUpload(file, currentPath)
+                                .then(async () => {
+                                    uploadedFiles++;
+                                    updateProgressToast(uploadedFiles, scannedFilesRef.current, 'Caricamento file...');
+                                })
+                                .catch(error => {
+                                    console.error('Errore durante il caricamento del file:', error);
+                                    customToast.error(`Errore durante il caricamento di ${file.name}`);
+                                })
+                        );
+                    } else if (item.isDirectory) {
+                        directoryPromises.push(
+                            processDirectory(item, currentPath, filesToUpload)
+                                .catch(error => {
+                                    console.error('Errore durante il processamento della cartella:', error);
+                                    customToast.error(`Errore durante il processamento della cartella ${item.name}`);
+                                })
+                        );
+                    }
                 }
             }
-            return;
-        }
 
-        // Gestione delle cartelle
-        for (let i = 0; i < items.length; i++) {
-            const item = items[i].webkitGetAsEntry();
-            if (item && item.isDirectory) {
-                try {
-                    await processDirectory(item, currentPath, filesToUpload);
-                } catch (error) {
-                    console.error('handleFolderDrop: error processing directory', error);
-                    customToast.error('Errore durante il caricamento della cartella');
-                    return;
+            // Attendiamo che tutti i caricamenti siano completati
+            await Promise.all([...directoryPromises, ...filePromises]);
+            
+            if (onStorageUpdate) onStorageUpdate();
+
+            // Piccola pausa per mostrare il totale finale della scansione
+            await new Promise(resolve => setTimeout(resolve, 200));
+            setIsScanning(false);
+
+            const totalFilesToProcess = scannedFilesRef.current;
+            if (totalFilesToProcess === 0) {
+                toast.error('Nessun file da caricare', { id: toastIdRef.current });
+                return;
+            }
+
+            // Processiamo i file delle cartelle
+            let totalFolders = 0;
+            let lastProcessedFolder = '';
+            if (filesToUpload.length > 0) {
+                // Raggruppiamo i file per cartella principale
+                const filesByFolder = new Map<string, File[]>();
+                
+                filesToUpload.forEach(file => {
+                    const topFolder = file.webkitRelativePath.split('/')[0];
+                    if (!filesByFolder.has(topFolder)) {
+                        filesByFolder.set(topFolder, []);
+                    }
+                    filesByFolder.get(topFolder)?.push(file);
+                });
+
+                totalFolders = filesByFolder.size;
+
+                // Creiamo un zip per ogni cartella principale
+                for (const [folderName, files] of filesByFolder) {
+                    lastProcessedFolder = folderName;
+                    const folderZip = new JSZip();
+                    
+                    // Aggiungiamo i file allo zip con aggiornamento progressivo
+                    for (const file of files) {
+                        const relativePath = file.webkitRelativePath.substring(folderName.length + 1);
+                        folderZip.file(relativePath, file);
+                        uploadedFiles++;
+                        updateProgressToast(uploadedFiles, totalFilesToProcess, `Compressione cartella ${folderName}...`);
+                        await new Promise(resolve => setTimeout(resolve, 10));
+                    }
+
+                    try {
+                        updateProgressToast(uploadedFiles, totalFilesToProcess, `Caricamento cartella ${folderName}...`);
+                        const content = await folderZip.generateAsync({ 
+                            type: 'blob',
+                            compression: 'DEFLATE',
+                            compressionOptions: {
+                                level: 9
+                            }
+                        });
+
+                        if (content.size === 0) {
+                            console.error(`Generated zip is empty for folder ${folderName}`);
+                            customToast.error(`Errore: il file zip generato è vuoto per la cartella ${folderName}`);
+                            continue;
+                        }
+
+                        const formData = new FormData();
+                        formData.append('zipFile', content, `${folderName}.zip`);
+                        formData.append('path', currentPath);
+
+                        const response = await fetch('http://localhost:3000/api/files/upload-folder', {
+                            method: 'POST',
+                            body: formData,
+                        });
+
+                        if (response.ok) {
+                            if (onFolderUpload) await onFolderUpload();
+                            if (onStorageUpdate) onStorageUpdate();
+                            updateProgressToast(uploadedFiles, totalFilesToProcess, `Cartella ${folderName} completata`);
+                        } else {
+                            const errorData = await response.json();
+                            customToast.error(`Errore durante il caricamento della cartella ${folderName}: ${errorData.error}`);
+                        }
+                    } catch (error) {
+                        console.error(`handleFolderDrop: error during zip or upload for folder ${folderName}`, error);
+                        customToast.error(`Errore durante il caricamento della cartella ${folderName}`);
+                    }
                 }
             }
-        }
 
-        if (filesToUpload.length > 0) {
-            const zip = new JSZip();
-            const firstFilePath = filesToUpload[0].webkitRelativePath;
-            const folderName = firstFilePath.split('/')[0];
+            // Piccola pausa prima del messaggio di completamento
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Operazione completata con successo
+            const successMessage = totalFolders > 0 
+                ? `Caricamento completato: ${lastProcessedFolder}`
+                : `Caricamento completato: ${totalFilesToProcess} file`;
 
-            filesToUpload.forEach(file => {
-                const relativePath = file.webkitRelativePath.substring(folderName.length + 1);
-                zip.file(relativePath, file);
+            toast.success(successMessage, {
+                id: toastIdRef.current,
+                duration: 3000
             });
 
-            try {
-                const content = await zip.generateAsync({ 
-                    type: 'blob',
-                    compression: 'DEFLATE',
-                    compressionOptions: {
-                        level: 9
-                    }
-                });
-
-                if (content.size === 0) {
-                    console.error('Generated zip is empty');
-                    customToast.error('Errore: il file zip generato è vuoto');
-                    return;
-                }
-
-                const formData = new FormData();
-                formData.append('zipFile', content, `${folderName}.zip`);
-                formData.append('path', currentPath);
-
-                const response = await fetch(`${API_ENDPOINTS.FILES}/upload-folder`, {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                if (response.ok) {
-                    if (onFolderUpload) await onFolderUpload();
-                    if (onStorageUpdate) onStorageUpdate();
-                    customToast.success('Cartella caricata con successo');
-                } else {
-                    const errorData = await response.json();
-                    customToast.error(`Errore durante il caricamento della cartella: ${errorData.error}`);
-                }
-            } catch (error) {
-                console.error('handleFolderDrop: error during zip or upload', error);
-                customToast.error('Errore durante il caricamento della cartella');
-            }
+            // Aggiorniamo la lista dei file
+            if (onStorageUpdate) onStorageUpdate();
+        } catch (error) {
+            toast.error('Si è verificato un errore durante il caricamento', {
+                id: toastIdRef.current,
+                duration: 3000
+            });
+        } finally {
+            setIsScanning(false);
+            scannedFilesRef.current = 0;
+            setTotalFiles(0);
+            setProcessedFiles(0);
+            if (onStorageUpdate) onStorageUpdate();
         }
     };
 
@@ -253,28 +378,62 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
     );
 };
 
-const formatDate = (dateString: string) => {
+const timestampCache = new Map<string, string>();
+
+const formatTimeAgo = (dateString: string, filePath: string, item?: FileData) => {
+    // Normalizziamo il percorso per la cache
+    const normalizedPath = filePath === '/' ? '/' : filePath;
+
+    // Se il timestamp è già in cache per questo file, lo restituiamo
+    if (timestampCache.has(normalizedPath)) {
+        return timestampCache.get(normalizedPath);
+    }
+
     const date = new Date(dateString);
-    return date.toLocaleDateString('it-IT', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-    });
+    const now = new Date();
+    
+    // Se l'item ha un originalTimestamp, lo usiamo invece della data corrente
+    const diffInSeconds = Math.floor((now.getTime() - (item?.originalTimestamp || date.getTime())) / 1000);
+
+    let formattedTime = '';
+    if (diffInSeconds < 60) {
+        formattedTime = 'Adesso';
+    } else if (diffInSeconds < 3600) {
+        const minutes = Math.floor(diffInSeconds / 60);
+        formattedTime = `${minutes} ${minutes === 1 ? 'minuto' : 'minuti'} fa`;
+    } else if (diffInSeconds < 86400) {
+        const hours = Math.floor(diffInSeconds / 3600);
+        formattedTime = `${hours} ${hours === 1 ? 'ora' : 'ore'} fa`;
+    } else if (diffInSeconds < 2592000) {
+        const days = Math.floor(diffInSeconds / 86400);
+        formattedTime = `${days} ${days === 1 ? 'giorno' : 'giorni'} fa`;
+    } else if (diffInSeconds < 31536000) {
+        const months = Math.floor(diffInSeconds / 2592000);
+        formattedTime = `${months} ${months === 1 ? 'mese' : 'mesi'} fa`;
+    } else {
+        const years = Math.floor(diffInSeconds / 31536000);
+        formattedTime = `${years} ${years === 1 ? 'anno' : 'anni'} fa`;
+    }
+
+    // Memorizziamo il timestamp formattato nella cache usando il percorso normalizzato
+    timestampCache.set(normalizedPath, formattedTime);
+    return formattedTime;
 };
 
 interface FileItemProps {
     item: FileData;
     onDelete: (path: string) => Promise<void>;
-    onRename: (oldPath: string, newPath: string) => Promise<void>;
+    onRename: (oldPath: string, newName: string) => Promise<void>;
     onFolderClick: (path: string) => void;
-    onUpload: (file: globalThis.File, targetPath: string) => Promise<void>;
+    onUpload: (file: File, targetPath: string) => Promise<void>;
     level: number;
     expanded: boolean;
     onToggle: (path: string) => void;
     onDoubleClick: (item: FileData) => void;
-    isPathExpanded: (path: string) => boolean;
     isSelected: boolean;
-    onSelect: (path: string, selected: boolean) => void;
+    onSelect: (path: string, selected: boolean, isMouseEvent?: boolean) => void;
+    onStorageUpdate?: () => void;
+    isPathExpanded: (path: string) => boolean;
     selectedFiles?: Set<string>;
 }
 
@@ -290,9 +449,12 @@ const FileItem: React.FC<FileItemProps> = ({
     onDoubleClick,
     isSelected,
     onSelect,
+    onStorageUpdate
 }) => {
     const indentation = level * 24;
     const [dragOver, setDragOver] = useState(false);
+    // const [isRenaming, setIsRenaming] = useState(false);
+    // const [newName, setNewName] = useState(item.name);
 
     const isEditable = () => {
         const extension = item.name.split('.').pop()?.toLowerCase() || '';
@@ -327,34 +489,51 @@ const FileItem: React.FC<FileItemProps> = ({
             const files = Array.from(e.dataTransfer.files);
             if (files.length > 0) {
                 try {
-                    await onUpload(files[0], item.path);
+                    const uploadPromises = files.map(file => 
+                        onUpload(file, item.path)
+                            .catch(error => {
+                                console.error('Errore durante il caricamento:', error);
+                                customToast.error(`Errore durante il caricamento di ${file.name}`);
+                            })
+                    );
+                    await Promise.all(uploadPromises);
+                    if (onStorageUpdate) onStorageUpdate();
                 } catch (error) {
                     console.error('Errore durante il caricamento:', error);
+                    customToast.error('Errore durante il caricamento dei file');
                 }
             }
         }
     };
 
+    const handleClick = () => {
+        // Normalizziamo il percorso prima di passarlo alla funzione di selezione
+        const normalizedPath = item.path === '/' ? '' : item.path;
+        onSelect(normalizedPath, !isSelected, true);
+    };
+
     return (
         <>
             <tr
-                className={`border-b last:border-b-0 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${dragOver ? 'bg-blue-50 dark:bg-blue-900' : ''}`}
+                className={`border-b last:border-b-0 transition-colors cursor-pointer
+                    ${dragOver ? 'bg-blue-50 dark:bg-blue-900' : ''} 
+                    ${isSelected 
+                        ? 'bg-blue-100 dark:bg-blue-800 font-semibold hover:bg-blue-100 dark:hover:bg-blue-800' 
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-600'
+                    }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
+                onClick={handleClick}
             >
                 <td className="p-3 flex items-center" style={{ paddingLeft: `${indentation + 12}px` }}>
-                    <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={(e) => onSelect(item.path, e.target.checked)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="mr-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
                     {item.type === 'folder' ? (
                         <div className="flex items-center">
                             <button
-                                onClick={() => onToggle(item.path)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onToggle(item.path);
+                                }}
                                 className="mr-2 focus:outline-none cursor-pointer"
                             >
                                 <span className="material-icons text-gray-500 dark:text-gray-300 text-sm transform transition-transform">
@@ -362,7 +541,10 @@ const FileItem: React.FC<FileItemProps> = ({
                                 </span>
                             </button>
                             <button
-                                onClick={() => onFolderClick(item.path)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onFolderClick(item.path);
+                                }}
                                 className="flex items-center hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer"
                             >
                                 <span className="material-icons text-yellow-500 dark:text-yellow-400">folder</span>
@@ -381,7 +563,7 @@ const FileItem: React.FC<FileItemProps> = ({
                     )}
                 </td>
                 <td className="p-2 text-gray-600 dark:text-gray-300">{item.size}</td>
-                <td className="p-2 text-gray-600 dark:text-gray-300">{formatDate(item.date)}</td>
+                <td className="p-2 text-gray-600 dark:text-gray-300">{formatTimeAgo(item.date, item.path, item)}</td>
                 <td className="p-2 text-center">
                     <div className="flex items-center justify-center space-x-2">
                         <button
@@ -416,7 +598,7 @@ const FileItem: React.FC<FileItemProps> = ({
                                             document.body.removeChild(link);
                                             window.URL.revokeObjectURL(url);
                                         } else {
-                                            window.location.href = `${API_ENDPOINTS.FILES}/download/${item.path}`;
+                                            window.location.href = `http://localhost:3000/api/files/download/${item.path}`;
                                         }
                                     } catch (error) {
                                         console.error('Errore durante il download:', error);
@@ -450,23 +632,33 @@ const FileItemWithExpand: React.FC<FileItemProps> = (props) => {
             {props.item.type === 'folder' && props.expanded && props.item.children && props.item.children.map((child, index) => (
                 <FileItemWithExpand
                     key={child.path + index}
+                    {...props}
                     item={child}
-                    onDelete={props.onDelete}
-                    onRename={props.onRename}
-                    onFolderClick={props.onFolderClick}
-                    onUpload={props.onUpload}
                     level={props.level + 1}
                     expanded={props.isPathExpanded(child.path)}
-                    onToggle={props.onToggle}
-                    onDoubleClick={props.onDoubleClick}
-                    isPathExpanded={props.isPathExpanded}
                     isSelected={props.selectedFiles?.has(child.path) || false}
-                    onSelect={props.onSelect}
-                    selectedFiles={props.selectedFiles}
                 />
             ))}
         </>
     );
+};
+
+// Aggiungiamo una funzione per gestire i timestamp persistenti
+const getStoredTimestamps = () => {
+    const stored = localStorage.getItem('fileTimestamps');
+    return stored ? JSON.parse(stored) : {};
+};
+
+const setStoredTimestamp = (path: string, timestamp: number) => {
+    const timestamps = getStoredTimestamps();
+    timestamps[path] = timestamp;
+    localStorage.setItem('fileTimestamps', JSON.stringify(timestamps));
+};
+
+const removeStoredTimestamp = (path: string) => {
+    const timestamps = getStoredTimestamps();
+    delete timestamps[path];
+    localStorage.setItem('fileTimestamps', JSON.stringify(timestamps));
 };
 
 const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref) => {
@@ -483,11 +675,37 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
     const createMenuRef = useRef<HTMLDivElement>(null);
     const createButtonRef = useRef<HTMLButtonElement>(null);
     const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+    const [lastSelectedFile, setLastSelectedFile] = useState<string | null>(null);
+    const [isShiftPressed, setIsShiftPressed] = useState(false);
+    // const [selectionStart, setSelectionStart] = useState<string | null>(null);
 
     const loadFiles = async (_currentPath?: string) => {
         try {
             const fileList = await fileService.getAllFiles(_currentPath || '/');
-            setFiles(fileList);
+            const storedTimestamps = getStoredTimestamps();
+            
+            // Aggiungiamo l'originalTimestamp a ogni file
+            const processFiles = (files: FileData[]) => {
+                return files.map(file => {
+                    const normalizedPath = file.path === '/' ? '/' : file.path;
+                    
+                    // Se il file non ha un timestamp memorizzato, lo salviamo
+                    if (!storedTimestamps[normalizedPath]) {
+                        storedTimestamps[normalizedPath] = new Date(file.date).getTime();
+                        setStoredTimestamp(normalizedPath, storedTimestamps[normalizedPath]);
+                    }
+                    
+                    // Usiamo il timestamp memorizzato
+                    file.originalTimestamp = storedTimestamps[normalizedPath];
+                    
+                    if (file.children) {
+                        file.children = processFiles(file.children);
+                    }
+                    return file;
+                });
+            };
+
+            setFiles(processFiles(fileList));
             
             // Mantieni le cartelle espanse dopo il ricaricamento
             setExpandedPaths(prev => {
@@ -544,6 +762,11 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                 );
             });
             
+            // Salva il timestamp di caricamento
+            const uploadPath = targetPath === '/' ? `/${file.name}` : `${targetPath}/${file.name}`;
+            const normalizedPath = uploadPath === '/' ? '/' : uploadPath;
+            setStoredTimestamp(normalizedPath, Date.now());
+            
             await loadFiles();
 
             toast.success(`File "${file.name}" caricato con successo in "${targetPath}"`, {
@@ -574,7 +797,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
     const handleFileDelete = async (path: string) => {
         const result = await Swal.fire({
             title: 'Sei sicuro?',
-            text: "Non potrai recuperare questo elemento una volta eliminato!",
+            text: "Sicuro di voler eliminare questo file?",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#3085d6',
@@ -587,15 +810,27 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
             try {
                 const result = await fileService.deleteFile(path);
 
+                // Rimuovi il timestamp dalla cache e dal localStorage
+                const normalizedPath = path === '' ? '/' : path;
+                timestampCache.delete(normalizedPath);
+                removeStoredTimestamp(normalizedPath);
+
                 if (result.shouldNavigateHome) {
                     setCurrentPath('/');
                     handleFolderClick('/');
                 }
 
+                // Aggiorna lo stato selectedFiles rimuovendo il file eliminato
+                setSelectedFiles(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(path);
+                    return newSet;
+                });
+
                 await loadFiles();
                 Swal.fire(
                     'Eliminato!',
-                    'L\'elemento è stato eliminato con successo.',
+                    'Il file è stato eliminato con successo.',
                     'success'
                 );
                 props.onStorageUpdate?.();
@@ -616,7 +851,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
             await loadFiles();
             Swal.fire(
                 'Rinominato!',
-                'L\'elemento è stato rinominato con successo.',
+                'Il file è stato rinominato con successo.',
                 'success'
             );
         } catch (error) {
@@ -833,25 +1068,85 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
         };
     }, [isCreateMenuOpen]);
 
-    const handleSelect = (path: string, selected: boolean) => {
-        setSelectedFiles(prev => {
-            const newSet = new Set(prev);
-            if (selected) {
-                newSet.add(path);
+    const handleSelect = (path: string, selected: boolean, isMouseEvent: boolean = false) => {
+        const normalizedPath = path === '/' ? '' : path;
+
+        if (isMouseEvent) {
+            if (isShiftPressed && lastSelectedFile) {
+                // Trova gli indici dei file selezionati
+                const allFiles = files.flatMap(f => [f, ...(f.children || [])]);
+                const fileList = allFiles.map(f => f.path);
+                const startIndex = fileList.indexOf(lastSelectedFile);
+                const endIndex = fileList.indexOf(normalizedPath);
+
+                if (startIndex !== -1 && endIndex !== -1) {
+                    const start = Math.min(startIndex, endIndex);
+                    const end = Math.max(startIndex, endIndex);
+                    const filesToSelect = fileList.slice(start, end + 1);
+
+                    setSelectedFiles(prev => {
+                        const newSet = new Set(prev);
+                        filesToSelect.forEach(filePath => {
+                            const normalizedFilePath = filePath === '/' ? '' : filePath;
+                            newSet.add(normalizedFilePath);
+                        });
+                        return newSet;
+                    });
+                }
             } else {
-                newSet.delete(path);
+                setSelectedFiles(prev => {
+                    const newSet = new Set(prev);
+                    if (selected) {
+                        newSet.add(normalizedPath);
+                    } else {
+                        newSet.delete(normalizedPath);
+                    }
+                    return newSet;
+                });
+                setLastSelectedFile(normalizedPath);
             }
-            return newSet;
-        });
+        } else {
+            setSelectedFiles(prev => {
+                const newSet = new Set(prev);
+                if (selected) {
+                    newSet.add(normalizedPath);
+                } else {
+                    newSet.delete(normalizedPath);
+                }
+                return newSet;
+            });
+        }
+    };
+
+    const handleSelectAll = () => {
+        const allPaths = new Set<string>();
+        
+        const addAllPaths = (items: FileData[]) => {
+            items.forEach(item => {
+                // Normalizziamo il percorso per gestire correttamente la home directory
+                const normalizedPath = item.path === '/' ? '' : item.path;
+                allPaths.add(normalizedPath);
+                if (item.children) {
+                    addAllPaths(item.children);
+                }
+            });
+        };
+        
+        addAllPaths(files);
+        setSelectedFiles(allPaths);
+    };
+
+    const handleDeselectAll = () => {
+        setSelectedFiles(new Set());
     };
 
     const handleDeleteSelected = async () => {
-        const selectedPaths = Array.from(selectedFiles);
+        const selectedPaths = Array.from(selectedFiles).map(path => path || '/');  // Convertiamo stringa vuota in '/'
         if (selectedPaths.length === 0) return;
 
         const result = await Swal.fire({
             title: 'Sei sicuro?',
-            text: `Stai per eliminare ${selectedPaths.length} elementi selezionati. Questa azione non può essere annullata!`,
+            text: `Stai per eliminare ${selectedPaths.length} file selezionati.`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#3085d6',
@@ -880,13 +1175,13 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                 if (hasErrors) {
                     Swal.fire(
                         'Attenzione!',
-                        'Alcuni elementi non sono stati eliminati correttamente.',
+                        'Alcuni file non sono stati eliminati correttamente.',
                         'warning'
                     );
                 } else {
                     Swal.fire(
                         'Eliminati!',
-                        'Gli elementi selezionati sono stati eliminati con successo.',
+                        'I file selezionati sono stati eliminati con successo.',
                         'success'
                     );
                 }
@@ -910,8 +1205,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
             if (selectedPaths.length === 1) {
                 // Se è selezionato un solo elemento, usa la logica esistente
                 const path = selectedPaths[0];
-                const item = files.find(f => f.path === path) || 
-                           files.flatMap(f => f.children || []).find(f => f.path === path);
+                const item = files.find(f => f.path === path) || files.flatMap(f => f.children || []).find(f => f.path === path);
                 
                 if (!item) {
                     customToast.error('Elemento non trovato');
@@ -931,7 +1225,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                     window.URL.revokeObjectURL(url);
                 } else {
                     const encodedPath = encodeURIComponent(path).replace(/%2F/g, '/');
-                    window.location.href = `${API_ENDPOINTS.FILES}/download/${encodedPath}`;
+                    window.location.href = `http://localhost:3000/api/files/download/${encodedPath}`;
                 }
             } else {
                 // Per più elementi, usa JSZip per creare un archivio ZIP lato client
@@ -986,6 +1280,112 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
             toast.error("Errore durante lo spostamento nella cassaforte, fare prima l'accesso");
         }
     };
+
+    const handleDeleteAll = async () => {
+        const result = await Swal.fire({
+            title: 'Sei sicuro?',
+            text: "Stai per eliminare tutti i file e le cartelle.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sì, elimina tutto!',
+            cancelButtonText: 'Annulla'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                await fileService.deleteAllFiles();
+                setCurrentPath('/');
+                await loadFiles();
+                Swal.fire(
+                    'Eliminati!',
+                    'Tutti i file sono stati eliminati con successo.',
+                    'success'
+                );
+                props.onStorageUpdate?.();
+            } catch (error) {
+                console.error('Errore durante l\'eliminazione:', error);
+                Swal.fire(
+                    'Errore!',
+                    'Si è verificato un errore durante l\'eliminazione.',
+                    'error'
+                );
+            }
+        }
+    };
+
+    const handleMove = async () => {
+        if (selectedFiles.size === 0) return;
+        
+        const { value: destinationPath } = await Swal.fire({
+            title: 'Sposta file',
+            input: 'text',
+            inputLabel: 'Inserisci il percorso di destinazione',
+            inputPlaceholder: '/cartella/destinazione',
+            showCancelButton: true,
+            cancelButtonText: 'Annulla',
+            confirmButtonText: 'Sposta',
+            inputValidator: (value) => {
+                if (!value) {
+                    return 'Devi inserire un percorso!';
+                }
+                // Verifica che non si stia tentando di spostare nella stessa cartella
+                const normalizedCurrentPath = currentPath === '/' ? '' : currentPath;
+                const normalizedDestPath = value.startsWith('/') ? value : `/${value}`;
+                if (normalizedDestPath === normalizedCurrentPath) {
+                    return 'Non puoi spostare nella cartella corrente!';
+                }
+                return null;
+            }
+        });
+
+        if (destinationPath) {
+            try {
+                // Assicuriamoci che il percorso di destinazione inizi con /
+                const normalizedPath = destinationPath.startsWith('/') ? destinationPath : `/${destinationPath}`;
+                
+                // Prepara i file da spostare
+                const filesToMove = Array.from(selectedFiles).map(path => {
+                    // Se il percorso è vuoto, significa che il file è nella home directory
+                    return path === '' ? '/' : path;
+                });
+
+                // Chiamata API per spostare i file
+                await fileService.moveFiles(filesToMove, normalizedPath);
+                customToast.success('File spostati con successo');
+                setSelectedFiles(new Set());
+                await loadFiles();
+                if (props.onStorageUpdate) props.onStorageUpdate();
+            } catch (error) {
+                console.error('Errore durante lo spostamento dei file:', error);
+                customToast.error('Errore durante lo spostamento dei file');
+            }
+        }
+    };
+
+    // Aggiungi questo effetto per gestire gli eventi della tastiera
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Shift') {
+                setIsShiftPressed(true);
+            }
+        };
+
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 'Shift') {
+                setIsShiftPressed(false);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, []);
 
     if (loading) {
         return <div className="text-center py-8">Caricamento...</div>;
@@ -1106,61 +1506,130 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                         Menu
                                     </button>
                                     {isCreateMenuOpen && (
-                                        <div ref={createMenuRef} className="absolute left-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-xl z-10">
-                                            <button
-                                                onClick={() => {
-                                                    handleCreateFolder();
-                                                    toggleCreateMenu();
-                                                }}
-                                                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900 cursor-pointer"
-                                            >
-                                                <span className="material-icons mr-2">create_new_folder</span>
-                                                Nuova cartella
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    handleCreateFile();
-                                                    toggleCreateMenu();
-                                                }}
-                                                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900 cursor-pointer"
-                                            >
-                                                <span className="material-icons mr-2">note_add</span>
-                                                Nuovo file
-                                            </button>
+                                        <div ref={createMenuRef} className="absolute left-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-md shadow-xl z-10">
+                                            {/* Menu File */}
+                                            <div className="group relative">
+                                                <button className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-900 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900">
+                                                    <span className="material-icons mr-2">folder</span>
+                                                    File
+                                                    <span className="material-icons ml-auto text-sm">chevron_right</span>
+                                                </button>
+                                                <div className="hidden group-hover:block absolute left-full top-0 w-48 bg-white dark:bg-gray-900 rounded-md shadow-xl">
+                                                    <button
+                                                        onClick={() => {
+                                                            handleCreateFolder();
+                                                            toggleCreateMenu();
+                                                        }}
+                                                        className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-500 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900"
+                                                    >
+                                                        <span className="material-icons mr-2">create_new_folder</span>
+                                                        Nuova cartella
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            handleCreateFile();
+                                                            toggleCreateMenu();
+                                                        }}
+                                                        className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900"
+                                                    >
+                                                        <span className="material-icons mr-2">note_add</span>
+                                                        Nuovo file
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            handleDeleteAll();
+                                                            toggleCreateMenu();
+                                                        }}
+                                                        className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+                                                    >
+                                                        <span className="material-icons mr-2">delete_forever</span>
+                                                        Cestina tutti i file
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Menu Selezione */}
+                                            <div className="group relative">
+                                                <button className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-900 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900">
+                                                    <span className="material-icons mr-2">select_all</span>
+                                                    Selezione
+                                                    <span className="material-icons ml-auto text-sm">chevron_right</span>
+                                                </button>
+                                                <div className="hidden group-hover:block absolute left-full top-0 w-48 bg-white dark:bg-gray-900 rounded-md shadow-xl">
+                                                    <button
+                                                        onClick={() => {
+                                                            handleSelectAll();
+                                                            toggleCreateMenu();
+                                                        }}
+                                                        className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900"
+                                                    >
+                                                        <span className="material-icons mr-2">select_all</span>
+                                                        Seleziona tutti
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            handleDeselectAll();
+                                                            toggleCreateMenu();
+                                                        }}
+                                                        className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900"
+                                                    >
+                                                        <span className="material-icons mr-2">deselect</span>
+                                                        Deseleziona tutti
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Menu File Selezionati - visibile solo se ci sono file selezionati */}
                                             {selectedFiles.size > 0 && (
-                                                <>
-                                                    <div className="border-t border-gray-200 dark:border-gray-600 my-1"></div>
-                                                    <button
-                                                        onClick={() => {
-                                                            handleDownloadSelected();
-                                                            toggleCreateMenu();
-                                                        }}
-                                                        className="flex items-center w-full text-left px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer"
-                                                    >
-                                                        <span className="material-icons mr-2">download</span>
-                                                        Scarica ({selectedFiles.size})
+                                                <div className="group relative">
+                                                    <button className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-900 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900">
+                                                        <span className="material-icons mr-2">folder_special</span>
+                                                        File Selezionati ({selectedFiles.size})
+                                                        <span className="material-icons ml-auto text-sm">chevron_right</span>
                                                     </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            handleMoveToVault();
-                                                            toggleCreateMenu();
-                                                        }}
-                                                        className="flex items-center w-full text-left px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer"
-                                                    >
-                                                        <span className="material-icons mr-2">lock</span>
-                                                        Cassaforte ({selectedFiles.size})
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            handleDeleteSelected();
-                                                            toggleCreateMenu();
-                                                        }}
-                                                        className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 cursor-pointer"
-                                                    >
-                                                        <span className="material-icons mr-2">delete</span>
-                                                        Elimina ({selectedFiles.size})
-                                                    </button>
-                                                </>
+                                                    <div className="hidden group-hover:block absolute left-full top-0 w-48 bg-white dark:bg-gray-900 rounded-md shadow-xl">
+                                                        <button
+                                                            onClick={() => {
+                                                                handleDownloadSelected();
+                                                                toggleCreateMenu();
+                                                            }}
+                                                            className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-900 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900"
+                                                        >
+                                                            <span className="material-icons mr-2">download</span>
+                                                            Scarica
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                handleMoveToVault();
+                                                                toggleCreateMenu();
+                                                            }}
+                                                            className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-900 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900"
+                                                        >
+                                                            <span className="material-icons mr-2">lock</span>
+                                                            Sposta in Cassaforte
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                handleMove();
+                                                                toggleCreateMenu();
+                                                            }}
+                                                            className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900"
+                                                        >
+                                                            <span className="material-icons mr-2">drive_file_move</span>
+                                                            Sposta in...
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                handleDeleteSelected();
+                                                                toggleCreateMenu();
+                                                            }}
+                                                            className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+                                                        >
+                                                            <span className="material-icons mr-2">delete</span>
+                                                            Cestina i selezionati
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             )}
                                         </div>
                                     )}
@@ -1188,7 +1657,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                         <tr>
                                             <th className="p-2 text-left text-gray-600 dark:text-gray-300">Nome</th>
                                             <th className="p-2 text-left text-gray-600 dark:text-gray-300">Dimensione</th>
-                                            <th className="p-2 text-left text-gray-600 dark:text-gray-300">Data</th>
+                                            <th className="p-2 text-left text-gray-600 dark:text-gray-300">Caricato</th>
                                             <th className="p-3 text-center text-gray-600 dark:text-gray-300">Azioni</th>
                                         </tr>
                                     </thead>
@@ -1209,6 +1678,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                                 isSelected={selectedFiles.has(item.path)}
                                                 onSelect={handleSelect}
                                                 selectedFiles={selectedFiles}
+                                                onStorageUpdate={props.onStorageUpdate}
                                             />
                                         ))}
                                     </tbody>
@@ -1224,7 +1694,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                 </div>
             </div>
             <footer className="text-center py-4 bg-gray-100 dark:bg-gray-900">
-                <p className="text-gray-500 dark:text-gray-400"> Alessio Abrugiati | Powered by Caffeine and Code</p>
+                <p className="text-gray-500 dark:text-gray-400">© {new Date().getFullYear()} Alessio Abrugiati | Powered by Caffeine and Code</p>
                 <a className="justify-center text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400" rel="stylesheet" href="https://www.alexis82.it" target="_blank">www.alexis82.it</a>
             </footer>
         </div>

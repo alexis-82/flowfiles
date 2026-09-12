@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
@@ -8,8 +7,8 @@ import Changelog from './components/Changelog';
 import { Settings } from './components/Settings';
 import Editor from './components/Editor';
 import Vault from './components/Vault';
-import { fileService } from './services/fileService';
-import toast, { Toaster } from 'react-hot-toast';
+// import { fileService } from './services/fileService';
+import { Toaster } from 'react-hot-toast';
 import { TbMenu2 } from "react-icons/tb";
 
 // Creiamo un context per il tema
@@ -27,7 +26,7 @@ export const ThemeContext = createContext<ThemeContextType>({
 });
 
 function MainLayout() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [currentView, setCurrentView] = useState<'files' | 'trash' | 'settings' | 'changelog' | 'vault'>('files');
   const [storageUpdateTrigger, setStorageUpdateTrigger] = useState(0);
   const fileBrowserRef = useRef<FileBrowserHandle>(null);
@@ -61,17 +60,17 @@ function MainLayout() {
     setIsDarkMode(savedTheme === 'dark');
   }, []);
 
-  const handleDeleteAll = async () => {
-    try {
-      await fileService.deleteAllFiles();
-      if (fileBrowserRef.current) {
-        await fileBrowserRef.current.loadFiles();
-      }
-      setStorageUpdateTrigger(prev => prev + 1);
-    } catch (error) {
-      toast.error('Errore durante l\'eliminazione di tutti i file');
-    }
-  };
+  // const handleDeleteAll = async () => {
+  //   try {
+  //     await fileService.deleteAllFiles();
+  //     if (fileBrowserRef.current) {
+  //       await fileBrowserRef.current.loadFiles();
+  //     }
+  //     setStorageUpdateTrigger(prev => prev + 1);
+  //   } catch (error) {
+  //     toast.error('Errore durante l\'eliminazione di tutti i file');
+  //   }
+  // };
 
   const handleRefreshFiles = async () => {
     if (fileBrowserRef.current) {
@@ -80,11 +79,11 @@ function MainLayout() {
     setStorageUpdateTrigger(prev => prev + 1);
   };
 
-  const handleResetPath = () => {
-    if (fileBrowserRef.current) {
-      fileBrowserRef.current.resetPath();
-    }
-  };
+  // const handleResetPath = () => {
+  //   if (fileBrowserRef.current) {
+  //     fileBrowserRef.current.resetPath();
+  //   }
+  // };
 
   const renderCurrentView = () => {
     switch (currentView) {
@@ -130,12 +129,12 @@ function MainLayout() {
 
         <Sidebar
           isOpen={isSidebarOpen}
-          onDeleteAll={handleDeleteAll}
+          // onDeleteAll={handleDeleteAll}
           onViewChange={setCurrentView}
           currentView={currentView}
-          onRefreshFiles={handleRefreshFiles}
+          // onRefreshFiles={handleRefreshFiles}
           storageUpdateTrigger={storageUpdateTrigger}
-          onResetPath={handleResetPath}
+          // onResetPath={handleResetPath}
         />
         <div className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
           <div className="flex-1 overflow-auto">
@@ -151,7 +150,7 @@ function App() {
   return (
     <Router>
       <div className="h-screen">
-        <Toaster position="bottom-right" />
+        <Toaster position="bottom-right" toastOptions={{ duration: 5000, style: { marginRight: '1rem' } }} />
         <Routes>
           <Route path="/" element={<MainLayout />} />
           <Route path="/editor" element={<Editor />} />

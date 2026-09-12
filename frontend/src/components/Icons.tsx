@@ -1,11 +1,30 @@
 import React from 'react';
 import { FaCompactDisc, FaDocker, FaGit, FaRedhat, FaRegFilePdf } from 'react-icons/fa';
+import { IoTerminal } from 'react-icons/io5';
 import { GrDocumentTxt } from 'react-icons/gr';
 import { VscTerminalLinux, VscTerminalDebian } from "react-icons/vsc";
 import { RiFileExcel2Line, RiFileWord2Line } from 'react-icons/ri';
 import { TfiMicrosoftAlt } from "react-icons/tfi";
 import { GoFileZip } from "react-icons/go";
-import { Si7Zip, SiApple, SiDotenv, SiHtml5, SiIos, SiJavascript, SiPython, SiTypescript } from 'react-icons/si';
+import { Si7Zip, 
+    SiApple,
+    SiDotenv,
+    SiGo,
+    SiHtml5,
+    SiIos,
+    SiPython,
+    SiRust,
+    SiTypescript,
+    SiSwift,
+    SiKotlin,
+    SiJavascript,
+    SiLua,
+    SiPerl,
+    SiRuby,
+    SiCplusplus,
+    SiC,
+    SiPhp
+} from 'react-icons/si';
 import {
     BsFileEarmarkCode,
     BsFiletypeExe,
@@ -24,7 +43,8 @@ import {
     TbMusic,
     TbFile,
     TbFileTypeCss,
-    TbZip
+    TbZip,
+    TbBrandCSharp
 } from "react-icons/tb";
 
 interface IconProps {
@@ -112,10 +132,8 @@ export const FileIcon: React.FC<{ filename: string; className?: string }> = ({ f
         case 'xml':
         case 'yml':
         case 'yaml':
-        case 'cs':
         case 'json':
         case 'md':
-        case 'cpp':
         case 'xaml':
             return <BsFileEarmarkCode {...props} />;
         case 'sql':
@@ -130,7 +148,6 @@ export const FileIcon: React.FC<{ filename: string; className?: string }> = ({ f
             return <TbAppWindow {...props} />;
         case 'bat':
         case 'cmd':
-        case 'sh':
         case 'ps1':
         case 'psm1':
         case 'psd1':
@@ -181,6 +198,36 @@ export const FileIcon: React.FC<{ filename: string; className?: string }> = ({ f
             return <BsAndroid2 {...props} />;
         case 'ipa':
             return <SiIos {...props} />;
+        case 'sh':
+        case 'bash':
+        case 'zsh':
+        case 'fish':
+        case 'ksh':
+        case 'tcsh':
+        case 'csh':
+            return <IoTerminal  {...props} />;
+        case 'swift':
+            return <SiSwift {...props} />;
+        case 'kt':
+            return <SiKotlin {...props} />;
+        case 'rs':
+            return <SiRust {...props} />;
+        case 'go':
+            return <SiGo {...props} />;
+        case 'cs':
+            return <TbBrandCSharp  {...props} />;
+        case 'lua':
+            return <SiLua {...props} />;
+        case 'pl':
+            return <SiPerl {...props} />;
+        case 'rb':
+            return <SiRuby {...props} />;
+        case 'cpp':
+            return <SiCplusplus {...props} />;
+        case 'c':
+            return <SiC {...props} />;
+        case 'php':
+            return <SiPhp {...props} />;
         default:
             return <TbFile {...props} />;
     }

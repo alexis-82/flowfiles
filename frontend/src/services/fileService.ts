@@ -1,9 +1,7 @@
 import axios from 'axios';
-import { API_ENDPOINTS } from '../config';
 
-// Utilizziamo gli URL dalla configurazione centralizzata
-const API_URL = API_ENDPOINTS.FILES;
-const SETTINGS_URL = API_ENDPOINTS.SETTINGS;
+const API_URL = 'http://localhost:3000/api/files';
+const SETTINGS_URL = 'http://localhost:3000/api/settings';
 
 export const fileService = {
   async uploadFile(file: File, path: string = '/', onProgress?: (progress: number) => void) {
@@ -304,5 +302,26 @@ export const fileService = {
     // Rimuovi il token dalla localStorage dopo il reset
     localStorage.removeItem('vaultToken');
     return response.data;
-  }
+  },
+
+  moveFiles: async (files: string[], destinationPath: string) => {
+    try {
+      const response = await fetch('http://localhost:3000/api/files/move', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ files, destinationPath }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore durante lo spostamento dei file');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Errore durante lo spostamento dei file:', error);
+      throw error;
+    }
+  },
 };

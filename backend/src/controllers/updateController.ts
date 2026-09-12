@@ -44,9 +44,7 @@ export const updateController = {
                     path.join(rootDir, 'flowfiles/frontend/public', path.basename(script)),
                     // Percorsi relativi alla directory di lavoro corrente
                     path.join(process.cwd(), 'frontend/public/scripts', path.basename(script)),
-                    path.join(process.cwd(), 'public/scripts', path.basename(script)),
-                    // Cerca in absolute paths
-                    path.join('C:/Users/stage23/Desktop/alessio/sviluppo/bug/test/flowfiles/frontend/public/scripts', path.basename(script))
+                    path.join(process.cwd(), 'public/scripts', path.basename(script))
                 ];
                 
                 for (const altPath of alternativePaths) {
