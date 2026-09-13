@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import fileRoutes from './routes/fileRoutes';
 import settingsRoutes from './routes/settingsRoutes';
-import updateRoutes from './routes/updateRoutes';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -24,6 +23,5 @@ app.use(express.json());
 // Configura le routes
 app.use('/api/files', fileRoutes);
 app.use('/api/settings', settingsRoutes);
-app.use('/api/update', updateRoutes);
 
 export default app; 

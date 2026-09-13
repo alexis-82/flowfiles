@@ -6,7 +6,6 @@ import { ThemeContext } from '../App';
 import Swal from 'sweetalert2';
 import { sweetAlert } from '../utils/sweetAlert';
 import { VaultPasswordDialog } from './VaultPasswordDialog';
-import { API_ENDPOINTS } from '../config';
 
 interface SettingsProps {
     onSettingsUpdate: () => void;
@@ -31,8 +30,6 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
         fileSizeLimit: 1
     });
     const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
-    const [isUpdating, setIsUpdating] = useState(false);
-    const [updateAvailable, setUpdateAvailable] = useState(false);
     const { isDarkMode, toggleTheme } = useContext(ThemeContext);
     const [showVaultPasswordDialog, setShowVaultPasswordDialog] = useState(false);
     const [isVaultConfigured, setIsVaultConfigured] = useState(false);
@@ -78,170 +75,33 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
         return 0;
     };
 
-    const installUpdate = async () => {
-        setIsUpdating(true);
-        try {
-            // Esegui lo script di aggiornamento appropriato in base al sistema operativo
-            const isWindows = navigator.platform.toLowerCase().includes('win');
-            const scriptPath = isWindows ? 'frontend/public/scripts/update.bat' : 'frontend/public/scripts/update.sh';
-
-            // Mostra dialogo di installazione
-            Swal.fire({
-                title: 'Installazione aggiornamento',
-                html: 'Installazione in corso...<br/><div id="update-status" class="mt-3 text-sm"></div>',
-                didOpen: () => {
-                    Swal.showLoading();
-                },
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                allowEnterKey: false,
-                showConfirmButton: false
-            });
-
-            // Funzione per aggiornare lo stato
-            const updateStatus = (message: string) => {
-                const statusElement = document.getElementById('update-status');
-                if (statusElement) {
-                    statusElement.innerHTML += `${message}<br/>`;
-                    // Auto-scroll verso il basso
-                    statusElement.scrollTop = statusElement.scrollHeight;
-                }
-            };
-
-            updateStatus('Avvio processo di aggiornamento...');
-
-            try {
-                // Esegui lo script tramite il backend
-                const url = import.meta.env.DEV ?
-                    `${API_ENDPOINTS.UPDATE}/execute-update` :
-                    '/api/update/execute-update';
-
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ script: scriptPath })
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    updateStatus(`Errore HTTP ${response.status}: ${errorText}`);
-                    throw new Error(`Errore HTTP ${response.status}: ${errorText}`);
-                }
-
-                const result = await response.json();
-
-                if (!result.success) {
-                    updateStatus(`Errore: ${result.error || 'Errore sconosciuto'}`);
-
-                    // Chiudi il dialogo solo dopo un click dell'utente
-                    setTimeout(() => {
-                        Swal.update({
-                            showConfirmButton: true,
-                            confirmButtonText: 'Chiudi'
-                        });
-                    }, 1000);
-
-                    throw new Error(result.error || 'Errore durante l\'installazione');
-                }
-
-                // Verifica se lo script è stato avviato in una finestra separata
-                const isInSeparateWindow = result.message && result.message.includes('finestra separata');
-
-                if (isInSeparateWindow) {
-                    // Lo script è stato avviato in una finestra separata
-                    updateStatus(result.output || 'Aggiornamento avviato in una finestra separata');
-
-                    // Aggiorna il dialogo per mostrare un messaggio informativo
-                    await Swal.update({
-                        title: 'Aggiornamento in corso',
-                        html: `
-                            <div class="text-center">
-                                <p>L'aggiornamento è stato avviato in una finestra separata.</p>
-                                <p class="mt-3 text-sm">Puoi seguire il processo di aggiornamento nella finestra del terminale che si è aperta.</p>
-                                <p class="mt-3 text-sm text-gray-600">Nota: Al termine dell'aggiornamento, l'applicazione sarà riavviata automaticamente.</p>
-                            </div>
-                        `,
-                        icon: 'info',
-                        showConfirmButton: true,
-                        confirmButtonText: 'Ho capito',
-                        showCancelButton: false
-                    });
-
-                    // Chiudi il dialogo corrente quando l'utente clicca sul pulsante
-                    await Swal.close();
-                } else {
-                    // Processo normale (non in finestra separata)
-                    updateStatus(result.output || 'Aggiornamento eseguito');
-
-                    // Chiudi il dialogo corrente
-                    await Swal.close();
-
-                    // Mostra il messaggio di successo
-                    await Swal.fire({
-                        title: 'Aggiornamento completato',
-                        text: 'L\'applicazione verrà riavviata per applicare gli aggiornamenti',
-                        icon: 'success',
-                        confirmButtonText: 'Riavvia ora'
-                    });
-
-                    // Riavvia l'applicazione
-                    window.location.reload();
-                }
-            } catch (error) {
-                // Gestisci errori di rete o altre eccezioni durante la fetch
-                updateStatus(`Errore di connessione: ${error instanceof Error ? error.message : String(error)}`);
-
-                // Mostra pulsante di chiusura
-                setTimeout(() => {
-                    Swal.update({
-                        showConfirmButton: true,
-                        confirmButtonText: 'Chiudi'
-                    });
-                }, 1000);
-
-                throw error; // Rilancia l'errore per la gestione esterna
-            }
-        } catch (error) {
-            console.error('Errore durante l\'installazione:', error);
-            toast.error('Errore durante l\'installazione dell\'aggiornamento');
-        } finally {
-            setIsUpdating(false);
-        }
-    };
-
+    // L'auto-update via UI è stato rimosso: aggiorna il server via SSH.
+    // Vedi scripts/flowfiles-update.sh (installato in /usr/local/bin/flowfiles-update).
     const checkForUpdates = async () => {
         setIsCheckingUpdate(true);
         try {
             const response = await fetch('https://api.github.com/repos/alexis-82/flowfiles/releases/latest');
             const data: GithubRelease = await response.json();
-            
+
             if (compareVersions(CURRENT_VERSION, data.tag_name) < 0) {
-                setUpdateAvailable(true);
-                const result = await Swal.fire({
+                await Swal.fire({
                     title: 'Aggiornamento disponibile',
                     html: `
                         <div class="text-left">
-                            <p class="mb-2">È disponibile una nuova versione: ${data.tag_name}</p>
-                            <p class="text-sm mb-4">Note di rilascio:</p>
-                            <div class="text-sm bg-gray-100 p-3 rounded max-h-40 overflow-y-auto">
+                            <p class="mb-2">È disponibile una nuova versione: <strong>${data.tag_name}</strong> (attuale: ${CURRENT_VERSION})</p>
+                            <p class="text-sm mb-2">Note di rilascio:</p>
+                            <div class="text-sm bg-gray-100 p-3 rounded max-h-40 overflow-y-auto mb-4">
                                 ${data.body.replace(/\n/g, '<br>')}
                             </div>
-                            <p class="mt-4 text-sm">Puoi installare l'aggiornamento automaticamente usando il bottone "Installa aggiornamento" oppure scaricarlo manualmente da GitHub.</p>
+                            <p class="text-sm mb-2">Per aggiornare, connettiti al server via SSH ed esegui:</p>
+                            <pre class="text-sm bg-gray-900 text-green-400 p-3 rounded overflow-x-auto"><code>sudo flowfiles-update</code></pre>
+                            <p class="text-xs text-gray-500 mt-3">Lo script scarica la nuova versione, installa le dipendenze, ricompila e riavvia i servizi. Se non è installato, vedi <code>scripts/flowfiles-update.sh</code> nel repo.</p>
                         </div>
                     `,
                     icon: 'info',
-                    showCancelButton: true,
-                    confirmButtonText: 'Vai alla pagina di download',
-                    cancelButtonText: 'Più tardi'
+                    confirmButtonText: 'Ho capito'
                 });
-
-                if (result.isConfirmed) {
-                    window.open(data.html_url, '_blank');
-                }
             } else {
-                setUpdateAvailable(false);
                 toast.success('Sei già alla versione più recente');
             }
         } catch (error) {
@@ -431,19 +291,10 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
                                 </div>
                                 <div className="flex space-x-4">
                                     <button
-                                        onClick={installUpdate}
-                                        disabled={!updateAvailable || isUpdating || isCheckingUpdate}
-                                        className={`px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors ${
-                                            (!updateAvailable || isUpdating || isCheckingUpdate) ? 'opacity-50 cursor-not-allowed' : ''
-                                        }`}
-                                    >
-                                        {isUpdating ? 'Installazione...' : 'Installa aggiornamento'}
-                                    </button>
-                                    <button
                                         onClick={checkForUpdates}
-                                        disabled={isCheckingUpdate || isUpdating}
+                                        disabled={isCheckingUpdate}
                                         className={`px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors ${
-                                            (isCheckingUpdate || isUpdating) ? 'opacity-50 cursor-not-allowed' : ''
+                                            isCheckingUpdate ? 'opacity-50 cursor-not-allowed' : ''
                                         }`}
                                     >
                                         {isCheckingUpdate ? 'Verifica in corso...' : 'Verifica Aggiornamenti'}

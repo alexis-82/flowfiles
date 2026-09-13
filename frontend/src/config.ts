@@ -19,7 +19,6 @@ export const API_BASE_URL = getCurrentHost();
 export const API_ENDPOINTS = {
     FILES: `${API_BASE_URL}/api/files`,
     SETTINGS: `${API_BASE_URL}/api/settings`,
-    UPDATE: `${API_BASE_URL}/api/update`,
 };
 
 // Ulteriori configurazioni
