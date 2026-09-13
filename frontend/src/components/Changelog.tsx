@@ -9,7 +9,7 @@ interface ChangelogEntry {
 const changelogData: ChangelogEntry[] = [
     {
         version: "1.4.4",
-        date: "xx-12-2024",
+        date: "13-09-2026",
         changes: [
             "Implementato editor Quill per i file di testo",
             "Implementato editor Monaco per i file di codice",
@@ -26,7 +26,7 @@ const changelogData: ChangelogEntry[] = [
     },
     {
         version: "1.4.3",
-        date: "xx-12-2024",
+        date: "16-03-2025",
         changes: [
             "Implementato selezione multipla di file e cartelle",
             "Aggiunta la funzionalità di scaricare i file selezionati",
@@ -40,7 +40,7 @@ const changelogData: ChangelogEntry[] = [
     },
     {
         version: "1.4.2",
-        date: "xx-12-2024",
+        date: "09-03-2025",
         changes: [
             "Aggiunto il supporto di visualizzazione delle immagini",
             "Aggiunto il supporto di visualizzazione dei file pdf",
@@ -54,7 +54,7 @@ const changelogData: ChangelogEntry[] = [
     },
     {
         version: "1.4.1",
-        date: "xx-12-2024",
+        date: "16-02-2025",
         changes: [
             "Fix per il drag and drop dei file",
             "Fix per la visualizzazione delle cartelle e dei file nel cestino",
@@ -65,7 +65,7 @@ const changelogData: ChangelogEntry[] = [
     },
     {
         version: "1.4.0",
-        date: "xx-12-2024",
+        date: "02-02-2025",
         changes: [
             "Implementato la barra di progressione per l'upload dei file di grosse dimensioni",
             "Implementato editor di file di testo, doppio click per modificare",

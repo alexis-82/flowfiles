@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import JSZip from 'jszip';
 // import path from 'path';
 import Swal from 'sweetalert2';
+import { API_ENDPOINTS } from '../config';
 
 interface FileData {
     name: string;
@@ -303,7 +304,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
                         formData.append('zipFile', content, `${folderName}.zip`);
                         formData.append('path', currentPath);
 
-                        const response = await fetch('http://localhost:3000/api/files/upload-folder', {
+                        const response = await fetch(`${API_ENDPOINTS.FILES}/upload-folder`, {
                             method: 'POST',
                             body: formData,
                         });
@@ -598,7 +599,7 @@ const FileItem: React.FC<FileItemProps> = ({
                                             document.body.removeChild(link);
                                             window.URL.revokeObjectURL(url);
                                         } else {
-                                            window.location.href = `http://localhost:3000/api/files/download/${item.path}`;
+                                            window.location.href = `${API_ENDPOINTS.FILES}/download/${item.path}`;
                                         }
                                     } catch (error) {
                                         console.error('Errore durante il download:', error);
@@ -1225,7 +1226,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                     window.URL.revokeObjectURL(url);
                 } else {
                     const encodedPath = encodeURIComponent(path).replace(/%2F/g, '/');
-                    window.location.href = `http://localhost:3000/api/files/download/${encodedPath}`;
+                    window.location.href = `${API_ENDPOINTS.FILES}/download/${encodedPath}`;
                 }
             } else {
                 // Per più elementi, usa JSZip per creare un archivio ZIP lato client
