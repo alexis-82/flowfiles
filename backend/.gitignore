@@ -4,4 +4,5 @@ dist/
 uploads/*
 !uploads/.gitkeep 
 logs/
+data/
 *.log 

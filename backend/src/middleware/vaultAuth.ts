@@ -4,16 +4,14 @@ import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { UPLOAD_DIR } from '../utils/paths';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret_key';
 const TOKEN_EXPIRY = parseInt(process.env.TOKEN_EXPIRY || '30');
-const VAULT_CONFIG_PATH = path.join(__dirname, '../../uploads/.vault/.vault-config.json');
+const VAULT_CONFIG_PATH = path.join(UPLOAD_DIR, '.vault/.vault-config.json');
 
 export const verifyVaultPassword = async (req: Request, res: Response) => {
     try {

@@ -1,16 +1,13 @@
 import { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 import logger from '../utils/logger';
+import { UPLOAD_DIR } from '../utils/paths';
+import { getStorageLimit } from './settingsController';
 import archiver from 'archiver';
 import AdmZip from 'adm-zip';
 import bcrypt from 'bcrypt';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const UPLOAD_DIR = path.join(__dirname, '../../uploads');
 const TRASH_DIR = path.join(UPLOAD_DIR, '.trash');
 const VAULT_DIR = path.join(UPLOAD_DIR, '.vault');
 
@@ -352,7 +349,7 @@ export const fileController = {
     async getStorageInfo(req: Request, res: Response) {
         try {
             const totalSize = calculateDirectorySize(UPLOAD_DIR);
-            const storageLimit = (global as any).STORAGE_LIMIT || 1024 * 1024 * 1024; // 1GB di default se non definito
+            const storageLimit = getStorageLimit();
             const usedStoragePercentage = (totalSize / storageLimit) * 100;
             
             res.json({

@@ -2,17 +2,15 @@ import express from 'express';
 import cors from 'cors';
 import fileRoutes from './routes/fileRoutes';
 import settingsRoutes from './routes/settingsRoutes';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { reloadConstants } from './controllers/settingsController';
+import { UPLOAD_DIR } from './utils/paths';
 import fs from 'fs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 
 // Crea la cartella uploads se non esiste
-const uploadsDir = path.join(__dirname, '../uploads');
+const uploadsDir = UPLOAD_DIR;
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -23,5 +21,8 @@ app.use(express.json());
 // Configura le routes
 app.use('/api/files', fileRoutes);
 app.use('/api/settings', settingsRoutes);
+
+// Carica all'avvio i limiti di storage salvati (errori già loggati da reloadConstants)
+reloadConstants().catch(() => {});
 
 export default app; 

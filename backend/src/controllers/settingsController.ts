@@ -1,13 +1,17 @@
 import { Request, Response } from 'express';
 import fs from 'fs';
-import { getConfigPath } from '../utils/paths';
+import path from 'path';
+import { getConfigPath, STORAGE_SETTINGS_PATH } from '../utils/paths';
 
-const CONFIG_PATH = getConfigPath();
+// Finché l'utente non salva i limiti, usa i default compilati in config/constants
+const DEFAULT_CONFIG_PATH = getConfigPath();
+const getSettingsPath = () =>
+    fs.existsSync(STORAGE_SETTINGS_PATH) ? STORAGE_SETTINGS_PATH : DEFAULT_CONFIG_PATH;
 
 // Funzione per ricaricare le costanti
 export const reloadConstants = async () => {
     try {
-        const configContent = await fs.promises.readFile(CONFIG_PATH, 'utf8');
+        const configContent = await fs.promises.readFile(getSettingsPath(), 'utf8');
         const storageLimitMatch = configContent.match(/STORAGE_LIMIT = (\d+) \* 1024/);
         const fileSizeLimitMatch = configContent.match(/FILE_SIZE_LIMIT = (\d+) \* 1024/);
 
@@ -27,6 +31,10 @@ export const reloadConstants = async () => {
         throw error;
     }
 };
+
+// Limiti correnti in byte (default 1GB finché non sono stati caricati)
+export const getStorageLimit = (): number => (global as any).STORAGE_LIMIT || 1024 * 1024 * 1024;
+export const getFileSizeLimit = (): number => (global as any).FILE_SIZE_LIMIT || 1024 * 1024 * 1024;
 
 export const settingsController = {
     getStorageSettings: async (_req: Request, res: Response) => {
@@ -59,7 +67,8 @@ export const settingsController = {
 export const FILE_SIZE_LIMIT = ${fileSizeLimit} * 1024 * 1024 * 1024;
 export const UPLOAD_DIR = 'uploads';`;
 
-            await fs.promises.writeFile(CONFIG_PATH, configTemplate);
+            await fs.promises.mkdir(path.dirname(STORAGE_SETTINGS_PATH), { recursive: true });
+            await fs.promises.writeFile(STORAGE_SETTINGS_PATH, configTemplate);
             
             // Ricarica le costanti dopo l'aggiornamento
             const newConstants = await reloadConstants();

@@ -48,21 +48,40 @@ EXTRACTED_DIR="$TEMP_DIR/flowfiles-main"
 
 echo
 echo "[4/6] Copia dei sorgenti (preservando uploads/, logs/, .env)..."
+# I pattern con "/" iniziale sono relativi alla sorgente (già dentro backend/ o frontend/)
 rsync -a \
     --exclude='node_modules' \
     --exclude='.git' \
-    --exclude='backend/uploads' \
-    --exclude='backend/logs' \
-    --exclude='backend/.env' \
-    --exclude='backend/dist' \
-    --exclude='frontend/dist' \
+    --exclude='/uploads' \
+    --exclude='/logs' \
+    --exclude='/.env' \
+    --exclude='/data' \
+    --exclude='/dist' \
     "$EXTRACTED_DIR/backend/" "$INSTALL_DIR/backend/"
 rsync -a \
     --exclude='node_modules' \
     --exclude='.git' \
-    --exclude='backend/dist' \
-    --exclude='frontend/dist' \
+    --exclude='/dist' \
     "$EXTRACTED_DIR/frontend/" "$INSTALL_DIR/frontend/"
+
+# Migrazione: fino alla 1.4.5 gli upload finivano in backend/dist/uploads,
+# che la build cancella. Li spostiamo in backend/uploads prima della build.
+OLD_UPLOADS="$INSTALL_DIR/backend/dist/uploads"
+if [ -d "$OLD_UPLOADS" ] && [ -n "$(ls -A "$OLD_UPLOADS")" ]; then
+    echo "Migrazione upload da dist/uploads a uploads/..."
+    mkdir -p "$INSTALL_DIR/backend/uploads"
+    rsync -a "$OLD_UPLOADS/" "$INSTALL_DIR/backend/uploads/"
+    rm -rf "$OLD_UPLOADS"
+fi
+
+# Stessa migrazione per i limiti di storage salvati dall'utente
+OLD_SETTINGS="$INSTALL_DIR/backend/dist/config/constants.mjs"
+NEW_SETTINGS="$INSTALL_DIR/backend/data/storage-settings.mjs"
+if [ -f "$OLD_SETTINGS" ] && [ ! -f "$NEW_SETTINGS" ]; then
+    echo "Migrazione limiti di storage in data/..."
+    mkdir -p "$(dirname "$NEW_SETTINGS")"
+    cp "$OLD_SETTINGS" "$NEW_SETTINGS"
+fi
 
 echo
 echo "[5/6] Fix permessi + installazione dipendenze + build..."

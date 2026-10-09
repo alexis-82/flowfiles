@@ -1,0 +1,4 @@
+# Script shell: sempre LF (anche se modificati/estratti su Windows)
+*.sh text eol=lf
+# Script Windows: sempre CRLF
+*.bat text eol=crlf

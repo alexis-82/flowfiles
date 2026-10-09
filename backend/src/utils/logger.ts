@@ -1,10 +1,8 @@
 import winston from 'winston';
 import 'winston-daily-rotate-file';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { LOGS_DIR } from './paths';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Configura il formato dei log
 const logFormat = winston.format.combine(
@@ -18,7 +16,7 @@ const logger = winston.createLogger({
     transports: [
         // Log su file con rotazione giornaliera
         new winston.transports.DailyRotateFile({
-            filename: path.join(__dirname, '../../logs/app-%DATE%.log'),
+            filename: path.join(LOGS_DIR, 'app-%DATE%.log'),
             datePattern: 'YYYY-MM-DD',
             zippedArchive: true,
             maxSize: '20m',
@@ -27,7 +25,7 @@ const logger = winston.createLogger({
         }),
         // Log degli errori su file separato
         new winston.transports.DailyRotateFile({
-            filename: path.join(__dirname, '../../logs/error-%DATE%.log'),
+            filename: path.join(LOGS_DIR, 'error-%DATE%.log'),
             datePattern: 'YYYY-MM-DD',
             zippedArchive: true,
             maxSize: '20m',

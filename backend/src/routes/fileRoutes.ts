@@ -1,44 +1,44 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { calculateDirectorySize } from '../utils/fileUtils';
 import { fileController, renameFile } from '../controllers/fileController';
 import fs from 'fs';
 import logger from '../utils/logger';
+import { UPLOAD_DIR } from '../utils/paths';
+import { getStorageLimit, getFileSizeLimit } from '../controllers/settingsController';
 import { verifyVaultPassword, validateVaultToken } from '../middleware/vaultAuth';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
 const storage = multer.diskStorage({
     destination: (_req, _file, cb) => {
-        cb(null, path.join(__dirname, '../../uploads'));
+        cb(null, UPLOAD_DIR);
     },
     filename: (_req, file, cb) => {
         cb(null, file.originalname);
     }
 });
 
-const STORAGE_LIMIT = 2 * 1024 * 1024 * 1024; // 2GB in bytes
-
+// I limiti sono letti a ogni upload: seguono quelli salvati nelle Impostazioni
 const upload = multer({
     storage,
-    limits: {
-        fileSize: 2 * 1024 * 1024 * 1024, // 2GB limite per file
-    },
     fileFilter: async (req, _file, cb) => {
         try {
-            const totalSize = calculateDirectorySize(path.join(__dirname, '../../uploads'));
+            const storageLimit = getStorageLimit();
+            const fileSizeLimit = getFileSizeLimit();
+            const totalSize = calculateDirectorySize(UPLOAD_DIR);
             const fileSize = parseInt(req.headers['content-length'] || '0');
 
             console.log('Current total size:', totalSize, 'bytes');
             console.log('Incoming file size:', fileSize, 'bytes');
-            console.log('Storage limit:', STORAGE_LIMIT, 'bytes');
-            if (totalSize + fileSize > STORAGE_LIMIT) {
-                return cb(new Error(`Storage limit exceeded. Available: ${STORAGE_LIMIT - totalSize} bytes`));
+            console.log('Storage limit:', storageLimit, 'bytes');
+            if (fileSize > fileSizeLimit) {
+                return cb(new Error(`File size limit exceeded. Max: ${fileSizeLimit} bytes`));
+            }
+            if (totalSize + fileSize > storageLimit) {
+                return cb(new Error(`Storage limit exceeded. Available: ${storageLimit - totalSize} bytes`));
             }
             cb(null, true);
         } catch (error) {
@@ -62,7 +62,7 @@ router.get('/list', async (req, res) => {
 
 router.get('/download/*', async (req: express.Request, res: express.Response):Promise<any> => {
     const filepath = req.params[0];
-    const fullPath = path.join(__dirname, '../../uploads', filepath);
+    const fullPath = path.join(UPLOAD_DIR, filepath);
     
     // Controlla se il file esiste
     if (!fs.existsSync(fullPath)) {
