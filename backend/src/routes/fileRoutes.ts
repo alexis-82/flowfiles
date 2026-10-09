@@ -183,6 +183,10 @@ router.post('/vault/restore/:filename', async (req, res) => {
     await fileController.restoreFromVault(req, res);
 });
 
+router.delete('/vault/empty', async (req, res) => {
+    await fileController.emptyVault(req, res);
+});
+
 router.delete('/vault/:filename', async (req, res) => {
     await fileController.deleteFromVault(req, res);
 });

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
 import { FileIcon, TrashIcon, DiskUploadIcon, DownloadIcon, RenameIcon } from './Icons';
 import { fileService } from '../services/fileService';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import customToast from '../utils/toast';
 import { toast } from 'react-hot-toast';
 import JSZip from 'jszip';
@@ -59,6 +59,18 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
     const [isScanning, setIsScanning] = useState(false);
     const toastIdRef = useRef<string>('');
     const scannedFilesRef = useRef<number>(0);
+    const abortControllerRef = useRef<AbortController | null>(null);
+    const [, setIsUploading] = useState(false);
+
+    // const cancelUpload = () => {
+    //     if (abortControllerRef.current) {
+    //         abortControllerRef.current.abort();
+    //         abortControllerRef.current = null;
+    //         setIsUploading(false);
+    //         toast.dismiss(toastIdRef.current);
+    //         customToast.info('Caricamento interrotto');
+    //     }
+    // };
 
     const updateProgressToast = (processed: number, total: number, message: string = 'Caricamento in corso...') => {
         if (total === 0) return;
@@ -74,6 +86,12 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
             progressMessage = `${processed}/${total} file (${percentage}%)`;
         }
 
+        // Forziamo la creazione di un nuovo ID per il toast se non esiste
+        if (!toastIdRef.current) {
+            toastIdRef.current = toast.loading('Inizializzazione...', { duration: Infinity });
+        }
+
+        // Creiamo un nuovo toast con il pulsante di interruzione
         toast.loading(
             <div className="flex flex-col">
                 <span>{statusMessage}</span>
@@ -84,6 +102,22 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
                     />
                 </div>
                 <span className="text-xs text-gray-500 mt-1">{progressMessage}</span>
+                <button
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (abortControllerRef.current) {
+                            abortControllerRef.current.abort();
+                            abortControllerRef.current = null;
+                            setIsUploading(false);
+                            toast.dismiss(toastIdRef.current);
+                            customToast.info('Caricamento interrotto');
+                        }
+                    }}
+                    className="mt-2 px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                >
+                    Interrompi
+                </button>
             </div>,
             { id: toastIdRef.current }
         );
@@ -99,20 +133,60 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
     };
 
     const handleFiles = async (files: File[]) => {
-        const uploadPromises = files.map(file => 
-            onUpload(file, currentPath)
-                .catch(error => {
+        setIsUploading(true);
+        abortControllerRef.current = new AbortController();
+        const signal = abortControllerRef.current.signal;
+        toastIdRef.current = toast.loading('Inizializzazione caricamento...', { duration: Infinity });
+        let uploadedFiles = 0;
+        const totalFiles = files.length;
+
+        try {
+            const uploadPromises = files.map(async (file) => {
+                if (signal.aborted) {
+                    throw new Error('Upload aborted');
+                }
+                
+                try {
+                    await onUpload(file, currentPath);
+                    uploadedFiles++;
+                    updateProgressToast(uploadedFiles, totalFiles, 'Caricamento file...');
+                } catch (error) {
+                    if (error instanceof Error && error.name === 'AbortError') {
+                        throw error;
+                    }
                     console.error('Errore durante il caricamento:', error);
                     customToast.error(`Errore durante il caricamento di ${file.name}`);
-                })
-        );
-        
-        await Promise.all(uploadPromises);
-        
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+                }
+            });
+            
+            await Promise.all(uploadPromises);
+            
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+            if (onStorageUpdate) onStorageUpdate();
+
+            toast.success(`Caricamento completato: ${totalFiles} file`, {
+                id: toastIdRef.current,
+                duration: 3000
+            });
+        } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') {
+                toast.error('Caricamento interrotto', {
+                    id: toastIdRef.current,
+                    duration: 3000
+                });
+            } else {
+                console.error('Errore durante il caricamento:', error);
+                toast.error('Si è verificato un errore durante il caricamento', {
+                    id: toastIdRef.current,
+                    duration: 3000
+                });
+            }
+        } finally {
+            setIsUploading(false);
+            abortControllerRef.current = null;
         }
-        if (onStorageUpdate) onStorageUpdate();
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,6 +250,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
                                     });
                                     
                                     filesToUpload.push(newFile);
+                                    updateProgressToast(filesToUpload.length, scannedFilesRef.current, 'Scansione cartelle...');
                                     resolveEntry();
                                 }, reject);
                             }
@@ -205,11 +280,18 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
         setTotalFiles(files.length);
         setProcessedFiles(0);
         setIsScanning(true);
+        setIsUploading(true);
+        abortControllerRef.current = new AbortController();
+        const signal = abortControllerRef.current.signal;
         toastIdRef.current = toast.loading('Inizializzazione scansione...', { duration: Infinity });
 
         try {
             // Prima fase: scansione delle cartelle e conteggio dei file
             for (let i = 0; i < items.length; i++) {
+                if (signal.aborted) {
+                    throw new Error('Upload aborted');
+                }
+
                 const item = items[i].webkitGetAsEntry();
                 const file = files[i];
                 
@@ -222,6 +304,9 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
                                     updateProgressToast(uploadedFiles, scannedFilesRef.current, 'Caricamento file...');
                                 })
                                 .catch(error => {
+                                    if (error instanceof Error && error.name === 'AbortError') {
+                                        throw error;
+                                    }
                                     console.error('Errore durante il caricamento del file:', error);
                                     customToast.error(`Errore durante il caricamento di ${file.name}`);
                                 })
@@ -230,6 +315,9 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
                         directoryPromises.push(
                             processDirectory(item, currentPath, filesToUpload)
                                 .catch(error => {
+                                    if (error instanceof Error && error.name === 'AbortError') {
+                                        throw error;
+                                    }
                                     console.error('Errore durante il processamento della cartella:', error);
                                     customToast.error(`Errore durante il processamento della cartella ${item.name}`);
                                 })
@@ -256,7 +344,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
             // Processiamo i file delle cartelle
             let totalFolders = 0;
             let lastProcessedFolder = '';
-            if (filesToUpload.length > 0) {
+            if (filesToUpload.length > 0 && !signal.aborted) {
                 // Raggruppiamo i file per cartella principale
                 const filesByFolder = new Map<string, File[]>();
                 
@@ -272,11 +360,19 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
 
                 // Creiamo un zip per ogni cartella principale
                 for (const [folderName, files] of filesByFolder) {
+                    if (signal.aborted) {
+                        throw new Error('Upload aborted');
+                    }
+
                     lastProcessedFolder = folderName;
                     const folderZip = new JSZip();
                     
                     // Aggiungiamo i file allo zip con aggiornamento progressivo
                     for (const file of files) {
+                        if (signal.aborted) {
+                            throw new Error('Upload aborted');
+                        }
+
                         const relativePath = file.webkitRelativePath.substring(folderName.length + 1);
                         folderZip.file(relativePath, file);
                         uploadedFiles++;
@@ -285,6 +381,10 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
                     }
 
                     try {
+                        if (signal.aborted) {
+                            throw new Error('Upload aborted');
+                        }
+
                         updateProgressToast(uploadedFiles, totalFilesToProcess, `Caricamento cartella ${folderName}...`);
                         const content = await folderZip.generateAsync({ 
                             type: 'blob',
@@ -307,6 +407,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
                         const response = await fetch(`${API_ENDPOINTS.FILES}/upload-folder`, {
                             method: 'POST',
                             body: formData,
+                            signal: signal
                         });
 
                         if (response.ok) {
@@ -318,6 +419,9 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
                             customToast.error(`Errore durante il caricamento della cartella ${folderName}: ${errorData.error}`);
                         }
                     } catch (error) {
+                        if (error instanceof Error && error.name === 'AbortError') {
+                            throw error;
+                        }
                         console.error(`handleFolderDrop: error during zip or upload for folder ${folderName}`, error);
                         customToast.error(`Errore durante il caricamento della cartella ${folderName}`);
                     }
@@ -340,12 +444,21 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
             // Aggiorniamo la lista dei file
             if (onStorageUpdate) onStorageUpdate();
         } catch (error) {
-            toast.error('Si è verificato un errore durante il caricamento', {
-                id: toastIdRef.current,
-                duration: 3000
-            });
+            if (error instanceof Error && error.name === 'AbortError') {
+                toast.error('Caricamento interrotto', {
+                    id: toastIdRef.current,
+                    duration: 3000
+                });
+            } else {
+                toast.error('Si è verificato un errore durante il caricamento', {
+                    id: toastIdRef.current,
+                    duration: 3000
+                });
+            }
         } finally {
             setIsScanning(false);
+            setIsUploading(false);
+            abortControllerRef.current = null;
             scannedFilesRef.current = 0;
             setTotalFiles(0);
             setProcessedFiles(0);
@@ -381,20 +494,12 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, currentPath, onFo
 
 const timestampCache = new Map<string, string>();
 
-const formatTimeAgo = (dateString: string, filePath: string, item?: FileData) => {
-    // Normalizziamo il percorso per la cache
-    const normalizedPath = filePath === '/' ? '/' : filePath;
-
-    // Se il timestamp è già in cache per questo file, lo restituiamo
-    if (timestampCache.has(normalizedPath)) {
-        return timestampCache.get(normalizedPath);
-    }
-
+const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     
-    // Se l'item ha un originalTimestamp, lo usiamo invece della data corrente
-    const diffInSeconds = Math.floor((now.getTime() - (item?.originalTimestamp || date.getTime())) / 1000);
+    // Usiamo sempre il timestamp fornito dal backend
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
     let formattedTime = '';
     if (diffInSeconds < 60) {
@@ -416,8 +521,6 @@ const formatTimeAgo = (dateString: string, filePath: string, item?: FileData) =>
         formattedTime = `${years} ${years === 1 ? 'anno' : 'anni'} fa`;
     }
 
-    // Memorizziamo il timestamp formattato nella cache usando il percorso normalizzato
-    timestampCache.set(normalizedPath, formattedTime);
     return formattedTime;
 };
 
@@ -431,6 +534,7 @@ interface FileItemProps {
     expanded: boolean;
     onToggle: (path: string) => void;
     onDoubleClick: (item: FileData) => void;
+    handleFolderDoubleClick: (path: string) => Promise<void>;
     isSelected: boolean;
     onSelect: (path: string, selected: boolean, isMouseEvent?: boolean) => void;
     onStorageUpdate?: () => void;
@@ -445,9 +549,8 @@ const FileItem: React.FC<FileItemProps> = ({
     onFolderClick,
     onUpload,
     level,
-    expanded,
-    onToggle,
     onDoubleClick,
+    handleFolderDoubleClick,
     isSelected,
     onSelect,
     onStorageUpdate
@@ -533,18 +636,14 @@ const FileItem: React.FC<FileItemProps> = ({
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    onToggle(item.path);
-                                }}
-                                className="mr-2 focus:outline-none cursor-pointer"
-                            >
-                                <span className="material-icons text-gray-500 dark:text-gray-300 text-sm transform transition-transform">
-                                    {expanded ? 'expand_more' : 'chevron_right'}
-                                </span>
-                            </button>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
                                     onFolderClick(item.path);
+                                }}
+                                onDoubleClick={(e) => {
+                                    e.stopPropagation();
+                                    // Deseleziona la cartella prima di navigare
+                                    const normalizedPath = item.path === '/' ? '' : item.path;
+                                    onSelect(normalizedPath, false);
+                                    handleFolderDoubleClick(item.path);
                                 }}
                                 className="flex items-center hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer"
                             >
@@ -564,7 +663,7 @@ const FileItem: React.FC<FileItemProps> = ({
                     )}
                 </td>
                 <td className="p-2 text-gray-600 dark:text-gray-300">{item.size}</td>
-                <td className="p-2 text-gray-600 dark:text-gray-300">{formatTimeAgo(item.date, item.path, item)}</td>
+                <td className="p-2 text-gray-600 dark:text-gray-300">{formatTimeAgo(item.date)}</td>
                 <td className="p-2 text-center">
                     <div className="flex items-center justify-center space-x-2">
                         <button
@@ -664,6 +763,7 @@ const removeStoredTimestamp = (path: string) => {
 
 const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref) => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [files, setFiles] = useState<FileData[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentPath, setCurrentPath] = useState('/');
@@ -741,8 +841,32 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
     }));
 
     useEffect(() => {
-        loadFiles();
-    }, [currentPath]);
+        const loadInitialFiles = async () => {
+            setLoading(true);
+            try {
+                // Controlla se c'è un percorso corrente nello state della location
+                const locationState = location.state as { currentDirectory?: string; returnToVault?: boolean };
+                if (locationState?.currentDirectory) {
+                    setCurrentPath(locationState.currentDirectory);
+                    await loadFiles(locationState.currentDirectory);
+                    // Pulisci lo state dopo averlo utilizzato
+                    navigate(location.pathname, { replace: true });
+                } else if (locationState?.returnToVault) {
+                    // Se stiamo tornando alla vault, non fare nulla qui
+                    // La logica della vault è gestita separatamente
+                } else {
+                    // Se non c'è uno state specifico, carica i file del percorso corrente
+                    await loadFiles(currentPath);
+                }
+            } catch (error) {
+                console.error('Errore durante il caricamento dei file:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadInitialFiles();
+    }, [location, currentPath, navigate]);
 
     const handleFileUpload = async (file: File, targetPath: string) => {
         const toastId = toast.loading('Preparazione al caricamento...');
@@ -770,7 +894,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
             
             await loadFiles();
 
-            toast.success(`File "${file.name}" caricato con successo in "${targetPath}"`, {
+            toast.success(`File "${file.name}" caricato in "${targetPath}"`, {
                 id: toastId,
             });
 
@@ -798,12 +922,12 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
     const handleFileDelete = async (path: string) => {
         const result = await Swal.fire({
             title: 'Sei sicuro?',
-            text: "Sicuro di voler eliminare questo file?",
+            text: "Sicuro di voler cestinare questo file?",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#3085d6',
             cancelButtonColor: '#d33',
-            confirmButtonText: 'Sì, elimina!',
+            confirmButtonText: 'Sì, cestina!',
             cancelButtonText: 'Annulla'
         });
 
@@ -831,7 +955,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                 await loadFiles();
                 Swal.fire(
                     'Eliminato!',
-                    'Il file è stato eliminato con successo.',
+                    'Il file è stato cestinato.',
                     'success'
                 );
                 props.onStorageUpdate?.();
@@ -866,7 +990,15 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
     };
 
     const handleFolderClick = async (path: string) => {
+        // Ora gestisce solo la selezione della cartella
+        const normalizedPath = path === '/' ? '' : path;
+        handleSelect(normalizedPath, !selectedFiles.has(normalizedPath), true);
+    };
+
+    const handleFolderDoubleClick = async (path: string) => {
+        // Gestisce la navigazione nella cartella
         setCurrentPath(path);
+        setExpandedPaths(new Set());
         await loadFiles(path);
     };
 
@@ -1122,18 +1254,13 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
     const handleSelectAll = () => {
         const allPaths = new Set<string>();
         
-        const addAllPaths = (items: FileData[]) => {
-            items.forEach(item => {
-                // Normalizziamo il percorso per gestire correttamente la home directory
-                const normalizedPath = item.path === '/' ? '' : item.path;
-                allPaths.add(normalizedPath);
-                if (item.children) {
-                    addAllPaths(item.children);
-                }
-            });
-        };
+        // Selezioniamo solo gli elementi di primo livello (non ricorsivamente)
+        files.forEach(item => {
+            // Normalizziamo il percorso per gestire correttamente la home directory
+            const normalizedPath = item.path === '/' ? '' : item.path;
+            allPaths.add(normalizedPath);
+        });
         
-        addAllPaths(files);
         setSelectedFiles(allPaths);
     };
 
@@ -1147,12 +1274,12 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
 
         const result = await Swal.fire({
             title: 'Sei sicuro?',
-            text: `Stai per eliminare ${selectedPaths.length} file selezionati.`,
+            text: `Stai per cestinare ${selectedPaths.length} file selezionati.`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#3085d6',
             cancelButtonColor: '#d33',
-            confirmButtonText: 'Sì, elimina!',
+            confirmButtonText: 'Sì, cestina!',
             cancelButtonText: 'Annulla'
         });
 
@@ -1176,13 +1303,13 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                 if (hasErrors) {
                     Swal.fire(
                         'Attenzione!',
-                        'Alcuni file non sono stati eliminati correttamente.',
+                        'Alcuni file non sono stati cestinati correttamente.',
                         'warning'
                     );
                 } else {
                     Swal.fire(
-                        'Eliminati!',
-                        'I file selezionati sono stati eliminati con successo.',
+                        'Cestinati!',
+                        'I file selezionati sono stati cestinati con successo.',
                         'success'
                     );
                 }
@@ -1272,25 +1399,57 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
     const handleMoveToVault = async () => {
         try {
             const files = Array.from(selectedFiles);
-            await Promise.all(files.map(file => fileService.moveToVault(file)));
-            toast.success(`${files.length} file spostati nella cassaforte`);
-            await loadFiles();
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const file of files) {
+                try {
+                    const response = await fileService.moveToVault(file);
+                    if (response.success) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error: any) {
+                    console.error(`Errore durante lo spostamento di ${file} nella cassaforte:`, error);
+                    // Se l'errore è dovuto alla cassaforte non configurata, mostra un messaggio specifico
+                    if (error.response?.status === 401) {
+                        toast.error('Configura una password per la cassaforte prima di spostare i file o fai il primo accesso');
+                        return; // Interrompi il processo se la cassaforte non è configurata
+                    }
+                    errorCount++;
+                }
+            }
+
+            if (successCount > 0) {
+                toast.success(`${successCount} elementi spostati nella cassaforte`);
+                await loadFiles();
+            }
+            
+            if (errorCount > 0) {
+                toast.error(`Non è stato possibile spostare ${errorCount} elementi nella cassaforte`);
+            }
+
             setSelectedFiles(new Set());
-        } catch (error) {
-            console.error('Errore durante lo spostamento nella cassaforte', error);
-            toast.error("Errore durante lo spostamento nella cassaforte, fare prima l'accesso");
+        } catch (error: any) {
+            console.error('Errore durante lo spostamento nella cassaforte:', error);
+            if (error.response?.status === 401) {
+                toast.error('Configura una password per la cassaforte prima di spostare i file');
+            } else {
+                toast.error("Errore durante lo spostamento nella cassaforte");
+            }
         }
     };
 
     const handleDeleteAll = async () => {
         const result = await Swal.fire({
             title: 'Sei sicuro?',
-            text: "Stai per eliminare tutti i file e le cartelle.",
+            text: "Stai per cestinare tutti i file e le cartelle.",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#3085d6',
             cancelButtonColor: '#d33',
-            confirmButtonText: 'Sì, elimina tutto!',
+            confirmButtonText: 'Sì, cestina tutto!',
             cancelButtonText: 'Annulla'
         });
 
@@ -1300,8 +1459,8 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                 setCurrentPath('/');
                 await loadFiles();
                 Swal.fire(
-                    'Eliminati!',
-                    'Tutti i file sono stati eliminati con successo.',
+                    'Cestinati!',
+                    'Tutti i file sono stati cestinati con successo.',
                     'success'
                 );
                 props.onStorageUpdate?.();
@@ -1543,7 +1702,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                                         }}
                                                         className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
                                                     >
-                                                        <span className="material-icons mr-2">delete_forever</span>
+                                                        <span className="material-icons mr-2">delete</span>
                                                         Cestina tutti i file
                                                     </button>
                                                 </div>
@@ -1638,7 +1797,8 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                 <button
                                     onClick={() => {
                                         setCurrentPath('/');
-                                        handleFolderClick('/');
+                                        setSelectedFiles(new Set());
+                                        handleFolderDoubleClick('/');
                                     }}
                                     className="flex items-center px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors cursor-pointer"
                                 >
@@ -1663,6 +1823,24 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
+                                        {currentPath !== '/' && (
+                                            <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                                <td className="p-3" colSpan={4}>
+                                                    <div
+                                                        className="flex items-center cursor-pointer"
+                                                        onClick={() => {
+                                                            const parentPath = currentPath.split('/').slice(0, -1).join('/') || '/';
+                                                            setCurrentPath(parentPath);
+                                                            setSelectedFiles(new Set());
+                                                            handleFolderDoubleClick(parentPath);
+                                                        }}
+                                                    >
+                                                        <span className="material-icons mr-3 text-yellow-500 dark:text-yellow-400">folder</span>
+                                                        <span className="text-gray-800 dark:text-gray-200">..</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
                                         {files.map((item, index) => (
                                             <FileItemWithExpand
                                                 key={item.path + index}
@@ -1675,6 +1853,7 @@ const FileBrowser = forwardRef<FileBrowserHandle, FileBrowserProps>((props, ref)
                                                 expanded={isPathExpanded(item.path)}
                                                 onToggle={(path) => handleTogglePath(path)}
                                                 onDoubleClick={handleFileDoubleClick}
+                                                handleFolderDoubleClick={handleFolderDoubleClick}
                                                 isPathExpanded={isPathExpanded}
                                                 isSelected={selectedFiles.has(item.path)}
                                                 onSelect={handleSelect}

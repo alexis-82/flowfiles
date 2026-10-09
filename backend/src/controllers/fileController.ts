@@ -41,7 +41,11 @@ const sanitizePath = (userPath: string): string => {
     return normalizedPath.startsWith('/') ? normalizedPath.slice(1) : normalizedPath;
 };
 
-const getFilesRecursively = (dir: string, basePath: string = '', filterSpecialDirs: boolean = true): any[] => {
+const getFilesRecursively = (dir: string, basePath: string = '', filterSpecialDirs: boolean = true, parentDate?: string): any[] => {
+    const dirStats = fs.statSync(dir);
+    // Usa il timestamp del genitore se fornito, altrimenti usa quello della directory corrente
+    const currentDirDate = parentDate || dirStats.mtime.toISOString();
+
     const items = fs.readdirSync(dir)
         .filter(filename => {
             // Filtra sempre i file e directory speciali
@@ -61,20 +65,20 @@ const getFilesRecursively = (dir: string, basePath: string = '', filterSpecialDi
             const relativePath = path.join(basePath, filename);
             const stats = fs.statSync(fullPath);
             const isDirectory = stats.isDirectory();
-            const parentStats = fs.statSync(dir);
 
             const item = {
                 name: filename,
                 size: isDirectory ? '-' : stats.size / (1024 * 1024) < 1 
                     ? `${(stats.size / 1024).toFixed(1)} KB`
                     : `${(stats.size / (1024 * 1024)).toFixed(1)} MB`,
-                date: isDirectory ? stats.mtime.toISOString() : parentStats.mtime.toISOString(),
+                date: currentDirDate,  // Usa il timestamp della directory corrente
                 type: isDirectory ? 'folder' : 'file',
                 path: relativePath.replace(/\\/g, '/'),
             };
 
             if (isDirectory) {
-                const children = getFilesRecursively(fullPath, relativePath, filterSpecialDirs);
+                // Passa il timestamp corrente come parentDate per i file nella sottocartella
+                const children = getFilesRecursively(fullPath, relativePath, filterSpecialDirs, currentDirDate);
                 if (children.length > 0) {
                     (item as any).children = children;
                 }
@@ -551,7 +555,7 @@ export const fileController = {
             }
 
             const zipFilePath = req.file.path;
-            const extractDir = path.join(targetDir, path.parse(req.file.originalname).name); // Estrai nella cartella con lo stesso nome dello zip
+            const extractDir = path.join(targetDir, path.parse(req.file.originalname).name);
 
             // Crea la directory di estrazione se non esiste
             if (!fs.existsSync(extractDir)) {
@@ -561,6 +565,33 @@ export const fileController = {
             // Estrai il contenuto dello zip
             const zip = new AdmZip(zipFilePath);
             zip.extractAllTo(extractDir, true);
+
+            // Ottieni il timestamp corrente
+            const currentTime = new Date();
+
+            // Prima imposta il timestamp della cartella principale
+            fs.utimesSync(extractDir, currentTime, currentTime);
+
+            // Funzione ricorsiva per aggiornare i timestamp
+            const updateTimestamps = (dirPath: string, timestamp: Date) => {
+                const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+                for (const entry of entries) {
+                    const fullPath = path.join(dirPath, entry.name);
+                    
+                    if (entry.isDirectory()) {
+                        // Per le directory, usa lo stesso timestamp del padre
+                        fs.utimesSync(fullPath, timestamp, timestamp);
+                        // Processa ricorsivamente i contenuti con lo stesso timestamp
+                        updateTimestamps(fullPath, timestamp);
+                    } else {
+                        // Per i file, usa lo stesso timestamp del padre
+                        fs.utimesSync(fullPath, timestamp, timestamp);
+                    }
+                }
+            };
+
+            // Aggiorna i timestamp di tutti i file e cartelle estratti usando il timestamp della cartella principale
+            updateTimestamps(extractDir, currentTime);
 
             // Elimina il file zip temporaneo
             fs.unlinkSync(zipFilePath);
@@ -585,6 +616,14 @@ export const fileController = {
             const { path: filepath } = req.body;
             if (!filepath) {
                 return res.status(400).json({ error: 'Percorso file non specificato' });
+            }
+
+            // Verifica se la cassaforte è configurata
+            const vaultConfig = JSON.parse(fs.readFileSync(VAULT_CONFIG_PATH, 'utf8'));
+            if (!vaultConfig.passwordHash) {
+                return res.status(401).json({ 
+                    error: 'Cassaforte non configurata. Imposta una password prima di spostare i file.' 
+                });
             }
 
             const sourcePath = path.join(UPLOAD_DIR, sanitizePath(filepath));
@@ -625,7 +664,7 @@ export const fileController = {
                 };
                 await copyRecursive(sourcePath, finalVaultPath);
                 // Dopo aver copiato tutto, eliminiamo la directory originale
-                await fs.promises.rm(sourcePath, { recursive: true });
+                await fs.promises.rm(sourcePath, { recursive: true, force: true });
             } else {
                 // Se è un file, lo spostiamo semplicemente
                 await fs.promises.rename(sourcePath, finalVaultPath);
@@ -713,6 +752,40 @@ export const fileController = {
             res.status(500).json({ 
                 success: false, 
                 message: 'Error deleting file',
+                error: (error as Error).message 
+            });
+        }
+    },
+
+    emptyVault: async (_req: Request, res: Response) => {
+        try {
+            // Leggi tutti i file nella directory della vault
+            const files = await fs.promises.readdir(VAULT_DIR);
+            
+            // Elimina ogni file/cartella
+            for (const file of files) {
+                // Salta il file di configurazione della vault
+                if (file === '.vault-config.json') continue;
+                
+                const filePath = path.join(VAULT_DIR, file);
+                const stats = await fs.promises.stat(filePath);
+                
+                if (stats.isDirectory()) {
+                    await fs.promises.rm(filePath, { recursive: true });
+                } else {
+                    await fs.promises.unlink(filePath);
+                }
+            }
+
+            res.status(200).json({ 
+                success: true, 
+                message: 'All files deleted successfully' 
+            });
+        } catch (error) {
+            logger.error('Error emptying vault:', error);
+            res.status(500).json({ 
+                success: false, 
+                message: 'Error emptying vault',
                 error: (error as Error).message 
             });
         }

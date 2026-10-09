@@ -12,7 +12,7 @@ export const reloadConstants = async () => {
         const fileSizeLimitMatch = configContent.match(/FILE_SIZE_LIMIT = (\d+) \* 1024/);
 
         if (!storageLimitMatch || !fileSizeLimitMatch) {
-            throw new Error('Unable to parse configuration file');
+            throw new Error('Impossibile analizzare il file di configurazione');
         }
 
         const storageLimit = parseInt(storageLimitMatch[1]) * 1024 * 1024 * 1024;
@@ -23,7 +23,7 @@ export const reloadConstants = async () => {
 
         return { storageLimit, fileSizeLimit };
     } catch (error) {
-        console.error('Error reloading constants:', error);
+        console.error('Errore durante il ricaricamento delle costanti:', error);
         throw error;
     }
 };
@@ -37,10 +37,11 @@ export const settingsController = {
                 fileSizeLimit
             });
         } catch (error) {
-            console.error('Error reading storage settings:', error);
-            res.status(500).json({ error: 'Failed to read storage settings' });
+            console.error('Errore durante la lettura delle impostazioni di storage:', error);
+            res.status(500).json({ error: 'Impossibile leggere le impostazioni di storage' });
         }
     },
+
 
     updateStorageSettings: async (req: Request, res: Response) => {
         try {
@@ -49,8 +50,9 @@ export const settingsController = {
             if (!storageLimit || !fileSizeLimit || 
                 storageLimit < 1 || fileSizeLimit < 1) {
                 return res.status(400).json({ 
-                    error: 'Invalid storage or file size limit values' 
+                    error: 'Valori di limite di storage o file non validi' 
                 });
+
             }
 
             const configTemplate = `export const STORAGE_LIMIT = ${storageLimit} * 1024 * 1024 * 1024;
@@ -63,12 +65,14 @@ export const UPLOAD_DIR = 'uploads';`;
             const newConstants = await reloadConstants();
 
             res.json({ 
-                message: 'Storage settings updated successfully',
+                message: 'Impostazioni di storage aggiornate con successo',
                 ...newConstants
             });
+
         } catch (error) {
-            console.error('Error updating storage settings:', error);
-            res.status(500).json({ error: 'Failed to update storage settings' });
+            console.error('Errore durante l\'aggiornamento delle impostazioni di storage:', error);
+            res.status(500).json({ error: 'Impossibile aggiornare le impostazioni di storage' });
         }
     }
+
 }; 

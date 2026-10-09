@@ -114,7 +114,6 @@ const Editor: React.FC = () => {
     const navigate = useNavigate();
     const [content, setContent] = useState('');
     const [filePath, setFilePath] = useState('');
-    const [isVaultFile, setIsVaultFile] = useState(false);
     const [isCodeFile, setIsCodeFile] = useState(false);
     const [language, setLanguage] = useState('plaintext');
     const quillRef = useRef<Quill>();
@@ -259,7 +258,6 @@ const Editor: React.FC = () => {
 
             setContent(formattedContent);
             setFilePath(state.filePath);
-            setIsVaultFile(state.isVaultFile || false);
 
             // Determine if it's a code file and set the language
             const extension = state.filePath.split('.').pop()?.toLowerCase() || '';
@@ -394,14 +392,24 @@ const Editor: React.FC = () => {
     };
 
     const handleClose = () => {
-        if (isVaultFile) {
+        const currentLocation = location.state as LocationState;
+        if (currentLocation?.returnToVault || currentLocation?.isVaultFile) {
             navigate('/', {
                 state: {
                     returnToVault: true
                 }
             });
         } else {
-            navigate('/');
+            // Estrai il percorso della directory dal percorso del file
+            const filePath = currentLocation?.filePath || '';
+            const directoryPath = filePath.substring(0, filePath.lastIndexOf('/')) || '/';
+            
+            navigate('/', {
+                state: {
+                    currentDirectory: directoryPath
+                },
+                replace: true
+            });
         }
     };
 

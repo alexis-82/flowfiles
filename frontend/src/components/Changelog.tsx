@@ -7,6 +7,22 @@ interface ChangelogEntry {
 }
 
 const changelogData: ChangelogEntry[] = [
+        {
+        version: "1.4.5",
+        date: "09-10-2026",
+        changes: [
+            "Fix editor per alcune estensioni in Cassaforte",
+            "Fix nell'editor che all'uscita ritornava alla Home Directory",
+            'Aumento livello di sicurezza per la sezione Cassaforte',
+            'Aggiunta la funzionalità di eliminare tutti i file in Cassaforte',
+            'Implementato interruzione di un processo di caricamento file o cartelle',
+            'Migliorata navigazione tra sottocartelle',
+            'Fix del timestamp nella tabella dei files',
+            'Fix editor nella sezione Cassaforte',
+            'Fix opzione selezionare/deselezionare tutti i file per poi spostare i file nella cassaforte',
+            'Migliorata esperienza nella navigazione nel file browser',
+        ]
+    },
     {
         version: "1.4.4",
         date: "13-09-2026",

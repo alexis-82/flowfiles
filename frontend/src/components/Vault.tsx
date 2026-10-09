@@ -23,12 +23,28 @@ interface FileItemProps {
     level?: number;
 }
 
+const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('it-IT', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    });
+};
+
 const FileItem: React.FC<FileItemProps> = ({ item, onDelete, onRestore, onDoubleClick, level = 0 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
-    
+
     const isEditable = () => {
         const extension = item.name.split('.').pop()?.toLowerCase() || '';
-        return ['txt', 'md', 'json', 'js', 'jsx', 'ts', 'tsx', 'css', 'html'].includes(extension);
+        return [
+            'txt', 'md', 'json', 'js', 'jsx', 'ts', 'tsx', 'css', 'html',
+            'xml', 'yml', 'yaml', 'ini', 'conf', 'sh', 'bat', 'ps1', 'py',
+            'java', 'cpp', 'c', 'h', 'hpp', 'sql', 'env', 'gitignore', 'md', 'markdown',
+            'gitkeep', 'csv', 'xlsx', 'xls', 'doc', 'docx', 'ppt', 'pptx', 'odt', 'ods',
+            'odp', 'txt', 'rtf', 'csv', 'tsv', 'log', 'bak', 'tmp', 'old', 'backup', 'cache',
+            'temp', 'Dockerfile', 'dockerignore', 'dockerfile', 'info', 'mjs', 'mts', 'mjsx', 'mtsx'
+        ].includes(extension);
     };
 
     const isPreviewable = () => {
@@ -56,7 +72,7 @@ const FileItem: React.FC<FileItemProps> = ({ item, onDelete, onRestore, onDouble
                             </span>
                         </button>
                     )}
-                    <div 
+                    <div
                         className={`flex items-center ${(isEditable() || isPreviewable() || isMediaFile()) && item.type !== 'folder' ? 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400' : ''}`}
                         onDoubleClick={() => item.type !== 'folder' && (isEditable() || isPreviewable() || isMediaFile()) && onDoubleClick(item)}
                         title={item.type !== 'folder' ? (isEditable() ? 'Doppio click per modificare' : isPreviewable() ? 'Doppio click per visualizzare' : isMediaFile() ? 'Doppio click per riprodurre' : undefined) : undefined}
@@ -66,7 +82,7 @@ const FileItem: React.FC<FileItemProps> = ({ item, onDelete, onRestore, onDouble
                     </div>
                 </td>
                 <td className="p-2 text-gray-600 dark:text-gray-300">{item.size}</td>
-                <td className="p-2 text-gray-600 dark:text-gray-300">{item.date}</td>
+                <td className="p-2 text-gray-600 dark:text-gray-300">{formatDate(item.date)}</td>
                 <td className="p-2 text-center">
                     <div className="flex items-center justify-center space-x-2">
                         <button
@@ -214,6 +230,26 @@ const Vault: React.FC<VaultProps> = ({ onStorageUpdate }) => {
         }
     };
 
+    const handleEmptyVault = async () => {
+        const result = await sweetAlert.confirm(
+            'Elimina tutti i file',
+            'Sei sicuro di voler eliminare definitivamente tutti i file dalla cassaforte? Questa azione non può essere annullata.',
+            'warning'
+        );
+
+        if (result) {
+            try {
+                await fileService.emptyVault();
+                await loadVaultFiles();
+                onStorageUpdate?.();
+                toast.success('Tutti i file sono stati eliminati con successo');
+            } catch (error) {
+                console.error('Errore durante l\'eliminazione dei file:', error);
+                toast.error('Errore durante l\'eliminazione dei file');
+            }
+        }
+    };
+
     const handleRestore = async (filepath: string) => {
         const result = await sweetAlert.confirm(
             'Ripristina file',
@@ -235,18 +271,18 @@ const Vault: React.FC<VaultProps> = ({ onStorageUpdate }) => {
 
     const handleFileDoubleClick = async (item: FileData) => {
         const extension = item.name.split('.').pop()?.toLowerCase() || '';
-        
+
         if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'pdf'].includes(extension)) {
             try {
                 const response = await fileService.downloadVaultFile(item.path);
-                const blob = new Blob([response.data], { 
-                    type: extension === 'svg' 
-                        ? 'image/svg+xml' 
+                const blob = new Blob([response.data], {
+                    type: extension === 'svg'
+                        ? 'image/svg+xml'
                         : extension === 'pdf'
-                        ? 'application/pdf'
-                        : `image/${extension}` 
+                            ? 'application/pdf'
+                            : `image/${extension}`
                 });
-                
+
                 const url = window.URL.createObjectURL(blob);
                 setPreviewType(extension);
                 setImagePreview(url);
@@ -276,7 +312,14 @@ const Vault: React.FC<VaultProps> = ({ onStorageUpdate }) => {
                 console.error('Error loading video file:', error);
                 toast.error('Errore nel caricamento del file video');
             }
-        } else if (['txt', 'md', 'json', 'js', 'jsx', 'ts', 'tsx', 'css', 'html'].includes(extension)) {
+        } else if ([
+            'txt', 'md', 'json', 'js', 'jsx', 'ts', 'tsx', 'css', 'html',
+            'xml', 'yml', 'yaml', 'ini', 'conf', 'sh', 'bat', 'ps1', 'py',
+            'java', 'cpp', 'c', 'h', 'hpp', 'sql', 'env', 'gitignore', 'md', 'markdown',
+            'gitkeep', 'csv', 'xlsx', 'xls', 'doc', 'docx', 'ppt', 'pptx', 'odt', 'ods',
+            'odp', 'txt', 'rtf', 'csv', 'tsv', 'log', 'bak', 'tmp', 'old', 'backup', 'cache',
+            'temp', 'Dockerfile', 'dockerignore', 'dockerfile', 'info', 'mjs', 'mts', 'mjsx', 'mtsx'
+        ].includes(extension)) {
             try {
                 const response = await fileService.downloadVaultFile(item.path);
                 // Per i file di testo, converti l'arraybuffer in stringa
@@ -326,14 +369,15 @@ const Vault: React.FC<VaultProps> = ({ onStorageUpdate }) => {
                     <span className="material-icons text-6xl text-blue-500 mb-4">lock</span>
                     <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">Area Protetta</h2>
                     <p className="text-gray-600 dark:text-gray-300 mb-6">
-                        Questa sezione è protetta da password. Per accedere ai contenuti della cassaforte, è necessario inserire la password corretta.
+                        Questa sezione è protetta da password. Per accedere ai contenuti della cassaforte, è necessario inserire la password corretta o impostarne una nuova.
                     </p>
                     <button
                         onClick={handleAuthentication}
-                        className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
                         Accedi alla Cassaforte
                     </button>
+
                 </div>
             </div>
         );
@@ -397,6 +441,14 @@ const Vault: React.FC<VaultProps> = ({ onStorageUpdate }) => {
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-200 ps-10">Cassaforte</h2>
                 <div className="flex items-center space-x-4">
+                    {files.length > 0 && (
+                        <button
+                            onClick={handleEmptyVault}
+                            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                        >
+                            Elimina tutti i file
+                        </button>
+                    )}
                     <button
                         onClick={handleLogout}
                         className="px-4 py-2 text-red-500 hover:text-red-600 transition-colors flex items-center"

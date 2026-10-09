@@ -16,6 +16,13 @@ export const customToast = {
 
     loading: (message: string) => {
         return toast.loading(message);
+    },
+
+    info: (message: string) => {
+        return toast(message, {
+            icon: '🔔',
+            duration: 3000
+        });
     }
 };
 

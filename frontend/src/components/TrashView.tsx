@@ -83,6 +83,8 @@ const TrashView: React.FC<TrashViewProps> = ({ onFilesUpdate, onStorageUpdate })
             'warning'
         );
         
+
+
         if (confirmed) {
             try {
                 await fileService.emptyTrash();

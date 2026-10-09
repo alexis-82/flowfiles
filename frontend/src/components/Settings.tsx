@@ -22,10 +22,11 @@ interface GithubRelease {
     html_url: string;
 }
 
-const CURRENT_VERSION = 'v1.4.4';
+const CURRENT_VERSION = 'v1.4.5';
 
 export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
     const [config, setConfig] = useState<StorageConfig>({
+
         storageLimit: 2,
         fileSizeLimit: 1
     });
@@ -95,7 +96,7 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
                             </div>
                             <p class="text-sm mb-2">Per aggiornare, connettiti al server via SSH ed esegui:</p>
                             <pre class="text-sm bg-gray-900 text-green-400 p-3 rounded overflow-x-auto"><code>sudo flowfiles-update</code></pre>
-                            <p class="text-xs text-gray-500 mt-3">Lo script scarica la nuova versione, installa le dipendenze, ricompila e riavvia i servizi. Se non è installato, vedi <code>scripts/flowfiles-update.sh</code> nel repo.</p>
+                            <p class="text-xs text-gray-500 mt-3">Lo script scarica la nuova versione, installa le dipendenze, ricompila e riavvia i servizi.</p>
                         </div>
                     `,
                     icon: 'info',
@@ -243,27 +244,43 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate }) => {
                             <div className="flex space-x-4">
                                 <button
                                     onClick={() => setShowVaultPasswordDialog(true)}
-                                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                                 >
                                     {isVaultConfigured ? 'Modifica Password' : 'Imposta Password'}
                                 </button>
                                 {isVaultConfigured && (
                                     <button
                                         onClick={async () => {
-                                            const confirmed = await sweetAlert.confirm(
-                                                'Reset Password',
-                                                'Sei sicuro di voler resettare la password della cassaforte? Questa azione non può essere annullata.',
-                                                'warning'
+                                            // Prima chiediamo la password attuale
+                                            const password = await sweetAlert.passwordPrompt(
+                                                'Verifica Password',
+                                                'Inserisci la password attuale per confermare il reset'
                                             );
-                                            
-                                            if (confirmed) {
-                                                try {
-                                                    await fileService.resetVaultPassword();
-                                                    toast.success('Password resettata con successo');
-                                                    checkVaultStatus();
-                                                } catch (error) {
-                                                    toast.error('Errore durante il reset della password');
+
+                                            if (!password) return;
+
+                                            try {
+                                                // Verifichiamo la password
+                                                await fileService.authenticateVault(password);
+                                                
+                                                // Se la password è corretta, procediamo con la conferma
+                                                const confirmed = await sweetAlert.confirm(
+                                                    'Reset Password',
+                                                    'Sei sicuro di voler resettare la password della cassaforte? Questa azione non può essere annullata.',
+                                                    'warning'
+                                                );
+                                                
+                                                if (confirmed) {
+                                                    try {
+                                                        await fileService.resetVaultPassword();
+                                                        toast.success('Password resettata con successo');
+                                                        checkVaultStatus();
+                                                    } catch (error) {
+                                                        toast.error('Errore durante il reset della password');
+                                                    }
                                                 }
+                                            } catch (error) {
+                                                toast.error('Password non valida');
                                             }
                                         }}
                                         className="px-4 py-2 text-red-600 border border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"

@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { fileService } from '../services/fileService';
 import toast from 'react-hot-toast';
-import { sweetAlert } from '../utils/sweetAlert';
-import { AxiosError } from 'axios';
 
 interface VaultPasswordDialogProps {
     isOpen: boolean;
@@ -60,29 +58,6 @@ export const VaultPasswordDialog: React.FC<VaultPasswordDialogProps> = ({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             toast.error(error.response?.data?.error || 'Errore durante l\'impostazione della password');
-        }
-    };
-
-    const handleReset = async () => {
-        const confirmed = await sweetAlert.confirm(
-            'Reset Password',
-            'Sei sicuro di voler resettare la password della cassaforte? Questa azione non può essere annullata.',
-            'warning'
-        );
-
-        if (confirmed) {
-            try {
-                await fileService.resetVaultPassword();
-                toast.success('Password resettata con successo');
-                onSuccess();
-                onClose();
-            } catch (error) {
-                const axiosError = error as AxiosError<{error: string}>;
-                toast.error(
-                    axiosError.response?.data?.error || 
-                    'Errore durante il reset della password'
-                );
-            }
         }
     };
 
@@ -153,14 +128,6 @@ export const VaultPasswordDialog: React.FC<VaultPasswordDialogProps> = ({
                     </div>
 
                     <div className="flex justify-between items-center mt-6">
-                        <button
-                            type="button"
-                            onClick={handleReset}
-                            className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 focus:outline-none"
-                        >
-                            Reset Password
-                        </button>
-                        
                         <div className="flex space-x-3">
                             <button
                                 type="button"

@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from 'axios';
+
 import { API_ENDPOINTS } from '../config';
 
 const API_URL = API_ENDPOINTS.FILES;
@@ -172,20 +174,28 @@ export const fileService = {
     return response.data;
   },
 
-  async moveToVault(filepath: string) {
+  async moveToVault(filepath: string | string[]) {
     try {
       const token = localStorage.getItem('vaultToken');
-      const response = await axios.post(`${API_URL}/vault/move`, 
-        { path: filepath },
+      // Se è un array, prendi solo il primo elemento
+      const path = Array.isArray(filepath) ? filepath[0] : filepath;
+      
+      const response = await axios.post(
+        `${API_URL}/vault/move`,
+        { path },
         {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         }
       );
+      
       return response.data;
-    } catch (error) {
-      console.error('Errore durante lo spostamento nella cassaforte:', error);
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        throw error;
+      }
+      console.error('Error moving to vault:', error);
       throw error;
     }
   },
@@ -254,6 +264,24 @@ export const fileService = {
     }
   },
 
+  async emptyVault() {
+    try {
+      const token = localStorage.getItem('vaultToken');
+      const response = await axios.delete(
+        `${API_URL}/vault/empty`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error emptying vault:', error);
+      throw error;
+    }
+  },
+
   async downloadVaultFile(filepath: string) {
     try {
       const token = localStorage.getItem('vaultToken');
@@ -273,7 +301,6 @@ export const fileService = {
     }
   },
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   logError: async (message: string, details?: any) => {
     try {
       await axios.post(`${API_URL}/log-error`, {
